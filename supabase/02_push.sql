@@ -17,3 +17,10 @@ end $$;
 drop trigger if exists notification_push on public.notifications;
 create trigger notification_push after insert on public.notifications
   for each row execute function public.notification_push();
+
+-- Rechte für die Server-Funktionen (service_role). Nötig, weil „neue Tabellen automatisch freigeben“ abgeschaltet ist.
+grant usage on schema public to service_role;
+grant all on all tables in schema public to service_role;
+grant all on all sequences in schema public to service_role;
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant all on sequences to service_role;
