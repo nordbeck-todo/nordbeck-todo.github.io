@@ -65,7 +65,7 @@ function renderLogin(msg = "") {
       <button class="btn red" style="width:100%;padding:11px" id="lb">Anmelden</button>
       <div style="text-align:center;margin-top:14px"><a href="#" id="fg">Passwort vergessen?</a></div>
     </form>
-    <div style="text-align:center;color:#8a8c92;font-size:12px;margin-top:18px">Nordbeck To-Do · Zugang nur auf Einladung</div></div></div>`;
+    <div style="text-align:center;color:#8a8c92;font-size:12px;margin-top:18px">Nordbeck To-Do · Zugang erhältst du von einem Admin</div></div></div>`;
   const f = document.getElementById("lf"), le = document.getElementById("le");
   const err = (t) => { le.textContent = t; le.classList.remove("hidden"); };
   f.onsubmit = async (e) => {
@@ -80,7 +80,7 @@ function renderLogin(msg = "") {
     const email = f.email.value.trim();
     if (!email) return err("Bitte zuerst die E-Mail-Adresse eintragen.");
     await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname + "?setpw=1" });
-    toast("Falls die Adresse bekannt ist, kommt gleich eine E-Mail.");
+    toast("Falls keine E-Mail kommt: Ein Admin kann dein Passwort in der App zurücksetzen.");
   };
 }
 
@@ -564,16 +564,18 @@ function vUsers() {
   if (!st.isAdmin()) return { title: "Nutzer", html: `<div class="empty">Nur für Admins.</div>` };
   return {
     title: "Nutzer",
-    html: `<div class="page-h"><h1>Nutzer</h1><button class="btn red" id="inv">${i("plus")}Einladen</button></div>
+    html: `<div class="page-h"><h1>Nutzer</h1><button class="btn red" id="inv">${i("plus")}Nutzer anlegen</button></div>
       <div class="card">${S.profiles.map((p) => `<div class="trow" style="cursor:default">${avatar(p.id, "lg")}
         <div class="tt"><div class="ti">${esc(p.name)} ${p.is_admin ? '<span class="chip">Admin</span>' : ""} ${p.active ? "" : '<span class="chip" style="color:var(--accent)">gesperrt</span>'}</div>
           <div class="meta">${esc(p.email || "")}</div></div>
         ${p.id === S.me ? '<span class="muted" style="font-size:12px">du</span>' : `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn sm" data-pw="${p.id}">Passwort</button>
           <button class="btn sm" data-adm="${p.id}">${p.is_admin ? "Admin entziehen" : "Zum Admin machen"}</button>
           <button class="btn sm ${p.active ? "danger" : ""}" data-act="${p.id}">${p.active ? "Sperren" : "Entsperren"}</button></div>`}</div>`).join("")}</div>
-      <p class="muted" style="font-size:13px;margin-top:10px">Eingeladene bekommen eine E-Mail mit einem Link und legen darüber ihr Passwort fest.</p>`,
+      <p class="muted" style="font-size:13px;margin-top:10px">Neue Nutzer bekommen ein Startpasswort, das du persönlich weitergibst. Sie können es unter Einstellungen ändern.</p>`,
     after(r) {
       r.querySelector("#inv").onclick = openInviteForm;
+      r.querySelectorAll("[data-pw]").forEach((b) => b.onclick = () => openPasswordForm(st.profile(b.dataset.pw)));
       r.querySelectorAll("[data-adm]").forEach((b) => b.onclick = async () => {
         const p = st.profile(b.dataset.adm);
         try { await st.updateProfile(p.id, { is_admin: !p.is_admin }); toast("Gespeichert"); } catch (e) { toast(e.message); }
@@ -726,20 +728,51 @@ function openProjectForm(p) {
     });
 }
 
+function randomPw() {
+  const a = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const r = crypto.getRandomValues(new Uint32Array(10));
+  return [...r].map((x) => a[x % a.length]).join("");
+}
 function openInviteForm() {
-  modal("Nutzer einladen", `
+  const pw = randomPw();
+  modal("Nutzer anlegen", `
     <div class="err hidden" id="fe"></div>
     <div class="field"><label>Name *</label><input name="name" required placeholder="Vor- und Nachname"></div>
     <div class="field"><label>E-Mail *</label><input type="email" name="email" required></div>
-    <p class="muted" style="font-size:13px">Die Person bekommt eine E-Mail mit einem Link und legt darüber ihr Passwort fest.</p>`,
-    `<button type="button" class="btn" data-close>Abbrechen</button><button class="btn red" id="sv">Einladung senden</button>`,
+    <div class="field"><label>Startpasswort *</label><input name="password" value="${pw}" minlength="8" required></div>
+    <p class="muted" style="font-size:13px">Gib der Person ihre E-Mail-Adresse und das Startpasswort persönlich weiter. Sie kann es danach unter Einstellungen ändern.</p>`,
+    `<button type="button" class="btn" data-close>Abbrechen</button><button class="btn red" id="sv">Anlegen</button>`,
     (f, close) => {
       f.onsubmit = async (e) => {
         e.preventDefault();
         const fe = f.querySelector("#fe"), b = f.querySelector("#sv");
+        const name = f.name.value.trim(), email = f.email.value.trim(), password = f.password.value;
+        if (!name || !email.includes("@") || password.length < 8) { fe.textContent = "Bitte Name, E-Mail und ein Passwort mit mind. 8 Zeichen angeben."; return fe.classList.remove("hidden"); }
         b.disabled = true;
-        try { await st.adminAction({ action: "invite", name: f.name.value.trim(), email: f.email.value.trim() }); toast("Einladung verschickt"); close(); }
-        catch (er) { b.disabled = false; fe.textContent = er.message; fe.classList.remove("hidden"); }
+        try {
+          await st.adminAction({ action: "create", name, email, password });
+          close();
+          modal("Nutzer angelegt", `<p style="margin-bottom:12px">Bitte gib ${esc(name)} diese Zugangsdaten weiter:</p>
+            <div class="card" style="padding:12px 14px;line-height:1.9"><div><span class="muted">Adresse:</span> nordbeck-todo.github.io</div>
+            <div><span class="muted">E-Mail:</span> ${esc(email)}</div><div><span class="muted">Passwort:</span> <b>${esc(password)}</b></div></div>`,
+            `<button type="button" class="btn red" data-close>Fertig</button>`, () => {});
+        } catch (er) { b.disabled = false; fe.textContent = er.message; fe.classList.remove("hidden"); }
+      };
+    });
+}
+function openPasswordForm(p) {
+  const pw = randomPw();
+  modal(`Passwort für ${p.name} zurücksetzen`, `
+    <div class="err hidden" id="fe"></div>
+    <div class="field"><label>Neues Passwort</label><input name="password" value="${pw}" minlength="8" required></div>
+    <p class="muted" style="font-size:13px">Gib das neue Passwort persönlich weiter.</p>`,
+    `<button type="button" class="btn" data-close>Abbrechen</button><button class="btn red" id="sv">Speichern</button>`,
+    (f, close) => {
+      f.onsubmit = async (e) => {
+        e.preventDefault();
+        const fe = f.querySelector("#fe");
+        try { await st.adminAction({ action: "password", user_id: p.id, password: f.password.value }); toast("Passwort gesetzt"); close(); }
+        catch (er) { fe.textContent = er.message; fe.classList.remove("hidden"); }
       };
     });
 }

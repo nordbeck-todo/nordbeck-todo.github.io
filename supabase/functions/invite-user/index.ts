@@ -1,13 +1,13 @@
 // @ts-nocheck
 // =====================================================================
 // Edge Function „invite-user“ – nur für Admins
-//   { action: "invite", email, name }      → Einladung per E-Mail
-//   { action: "deactivate", user_id }      → Zugang sperren
-//   { action: "activate",   user_id }      → Zugang wieder freigeben
+//   { action: "create", email, name, password } → Nutzer mit Startpasswort anlegen
+//   { action: "password", user_id, password }   → Passwort zurücksetzen
+//   { action: "deactivate", user_id }           → Zugang sperren
+//   { action: "activate",   user_id }           → Zugang wieder freigeben
 // =====================================================================
 const URL_ = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const APP_URL = "https://nordbeck-todo.github.io/";
 const ADMIN = { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" };
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -30,16 +30,30 @@ Deno.serve(async (req) => {
 
     const b = await req.json();
 
-    if (b.action === "invite") {
+    if (b.action === "create") {
       const email = String(b.email || "").trim().toLowerCase();
       const name = String(b.name || "").trim();
+      const password = String(b.password || "");
       if (!email.includes("@") || !name) return json({ error: "Name und E-Mail angeben." }, 400);
-      const r = await fetch(`${URL_}/auth/v1/invite?redirect_to=${encodeURIComponent(APP_URL + "?setpw=1")}`, {
-        method: "POST", headers: ADMIN, body: JSON.stringify({ email, data: { name } }),
+      if (password.length < 8) return json({ error: "Das Startpasswort muss mindestens 8 Zeichen haben." }, 400);
+      const r = await fetch(`${URL_}/auth/v1/admin/users`, {
+        method: "POST", headers: ADMIN,
+        body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { name } }),
       });
       const t = await r.json().catch(() => ({}));
-      if (!r.ok) return json({ error: t.msg || t.message || "Einladung fehlgeschlagen." }, 400);
+      if (!r.ok) {
+        const m = t.msg || t.message || t.error_description || "Anlegen fehlgeschlagen.";
+        return json({ error: /already/i.test(m) ? "Diese E-Mail-Adresse ist schon vergeben." : m }, 400);
+      }
       return json({ ok: true, id: t.id });
+    }
+
+    if (b.action === "password") {
+      const id = String(b.user_id || ""), password = String(b.password || "");
+      if (!id || password.length < 8) return json({ error: "Passwort mit mindestens 8 Zeichen angeben." }, 400);
+      const r = await fetch(`${URL_}/auth/v1/admin/users/${id}`, { method: "PUT", headers: ADMIN, body: JSON.stringify({ password }) });
+      if (!r.ok) return json({ error: "Passwort konnte nicht gesetzt werden." }, 400);
+      return json({ ok: true });
     }
 
     if (b.action === "deactivate" || b.action === "activate") {
