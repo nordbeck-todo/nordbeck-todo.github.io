@@ -65,7 +65,7 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
 /* Layout PC */
 .side { position: fixed; left: 0; top: 0; bottom: 0; width: var(--side-w); background: var(--side); color: var(--side-text); padding: 14px 10px;
   display: flex; flex-direction: column; z-index: 20; }
-.side .logo { padding: 6px 6px 2px; display: block; } .side .logo img { height: 52px; display: block; }
+.side .logo { padding: 6px 6px 2px; display: flex; justify-content: center; } .side .logo img { height: 52px; display: block; }
 .side .search { display: flex; align-items: center; gap: 8px; background: #ffffff10; border-radius: 5px; padding: 8px 10px; margin: 14px 0 10px; color: var(--side-muted); }
 .side .search input { background: none; border: none; outline: none; color: #fff; flex: 1; min-width: 0; }
 .side .search input::placeholder { color: var(--side-muted); }
@@ -202,11 +202,14 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
 @media (max-width: 900px) {
   .side, .top { display: none; }
   .main { margin: 0; padding: calc(var(--mhead-h, 96px) + var(--safe-t) + 12px) 12px calc(96px + var(--safe-b)); }
-  .mhead { display: flex; position: fixed; top: 0; left: 0; right: 0; z-index: 20; background: var(--side); color: #fff;
-    padding: calc(var(--safe-t) + 10px) 16px 12px; align-items: center; gap: 10px; }
-  .mhead .tt { flex: 1; min-width: 0; }
-  .mhead img { height: 30px; display: block; }
-  .mhead .ptitle { font-size: 19px; font-weight: 700; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mhead { display: block; position: fixed; top: 0; left: 0; right: 0; z-index: 20; background: var(--side); color: #fff;
+    padding: calc(var(--safe-t) + 8px) 14px 12px; }
+  .mhead .mrow { display: flex; align-items: center; }
+  .mhead .mside { width: 44px; display: flex; } .mhead .mside.r { justify-content: flex-end; }
+  .mhead .mlogo { flex: 1; display: flex; justify-content: center; }
+  .mhead .mlogo img { height: 34px; display: block; }
+  .mhead .mtitle { text-align: center; margin-top: 8px; }
+  .mhead .ptitle { font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mhead .sub { font-size: 12px; color: #9a9da5; }
   .mhead .bell { position: relative; display: flex; color: #fff; padding: 4px; }
   .mhead .bell .badge { position: absolute; top: -4px; right: -6px; font-size: 10px; }

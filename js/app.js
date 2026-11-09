@@ -162,9 +162,10 @@ function updateChrome(path, v) {
   document.getElementById("tav").innerHTML = avatar(S.me, "lg");
   // Handy
   const bell = `<a class="bell" href="#/mitteilungen" aria-label="Benachrichtigungen">${i("bell", "width:22px;height:22px")}${u ? `<span class="badge">${u}</span>` : ""}</a>`;
-  document.getElementById("mhead").innerHTML = v.back
-    ? `<a class="back" href="${v.back}" aria-label="Zurück">${i("back", "width:22px;height:22px")}</a><div class="tt">${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ""}<div class="ptitle" style="margin:0">${esc(v.title)}</div></div>${bell}`
-    : `<div class="tt"><img src="img/logo.png" alt="Nordbeck"><div class="ptitle">${esc(v.title)}</div></div>${bell}`;
+  document.getElementById("mhead").innerHTML = `
+    <div class="mrow"><span class="mside">${v.back ? `<a class="back" href="${v.back}" aria-label="Zurück">${i("back", "width:22px;height:22px")}</a>` : ""}</span>
+      <a href="#/" class="mlogo"><img src="img/logo.png" alt="Tischlermeister Nordbeck"></a><span class="mside r">${bell}</span></div>
+    <div class="mtitle">${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ""}<div class="ptitle">${esc(v.title)}</div></div>`;
   const mn = [["#/", "home", "Übersicht", ""], ["#/aufgaben", "check", "Aufgaben", "aufgaben"], ["#/projekte", "folder", "Projekte", "projekt"], ["#/mehr", "more", "Mehr", "mehr"]];
   const moreKeys = ["alle", "pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
   const w = st.waitingForMe().length;
@@ -273,7 +274,7 @@ function ring(pct) {
 // =====================================================================
 function pushNote() {
   const s = pushState();
-  if (s === "on" || s === "unsupported" || s === "denied" || localStorage.getItem("pushNoteHidden")) return "";
+  if (s === "on" || s === "unsupported" || s === "denied" || sessionStorage.getItem("pushNoteHidden")) return "";
   const ios = s === "ios-install";
   return `<div class="card note"><div>${i(ios ? "phone" : "bell", "width:22px;height:22px;color:var(--accent)")}</div>
     <div class="tx"><b>${ios ? "App zum Home-Bildschirm hinzufügen" : "Erinnerungen aktivieren"}</b><div class="muted" style="font-size:13px">${ios
@@ -283,7 +284,7 @@ function pushNote() {
 }
 function bindPushNote(root) {
   const on = root.querySelector("#pushOn"); if (on) on.onclick = async () => { await enablePush(); route(); };
-  const h = root.querySelector("#pushHide"); if (h) h.onclick = () => { localStorage.setItem("pushNoteHidden", "1"); route(); };
+  const h = root.querySelector("#pushHide"); if (h) h.onclick = () => { sessionStorage.setItem("pushNoteHidden", "1"); route(); };
 }
 
 function vDashboard() {
@@ -574,7 +575,7 @@ function vUsers() {
           <button class="btn sm" data-pw="${p.id}">Passwort</button>
           <button class="btn sm" data-adm="${p.id}">${p.is_admin ? "Admin entziehen" : "Zum Admin machen"}</button>
           <button class="btn sm ${p.active ? "danger" : ""}" data-act="${p.id}">${p.active ? "Sperren" : "Entsperren"}</button></div>`}</div>`).join("")}</div>
-      <p class="muted" style="font-size:13px;margin-top:10px">Neue Nutzer bekommen ein Startpasswort, das du persönlich weitergibst. Sie können es unter Einstellungen ändern.</p>`,
+      <p class="muted" style="font-size:13px;margin-top:10px">Neue Nutzer bekommen ein Startpasswort. Nach dem Anlegen kannst du die Zugangsdaten per „Teilen“ verschicken.</p>`,
     after(r) {
       r.querySelector("#inv").onclick = openInviteForm;
       r.querySelectorAll("[data-pw]").forEach((b) => b.onclick = () => openPasswordForm(st.profile(b.dataset.pw)));
@@ -742,7 +743,7 @@ function openInviteForm() {
     <div class="field"><label>Name *</label><input name="name" required placeholder="Vor- und Nachname"></div>
     <div class="field"><label>E-Mail *</label><input type="email" name="email" required></div>
     <div class="field"><label>Startpasswort *</label><input name="password" value="${pw}" minlength="8" required></div>
-    <p class="muted" style="font-size:13px">Gib der Person ihre E-Mail-Adresse und das Startpasswort persönlich weiter. Sie kann es danach unter Einstellungen ändern.</p>`,
+    <p class="muted" style="font-size:13px">Nach dem Anlegen kannst du die Zugangsdaten direkt per WhatsApp, Mail o. Ä. teilen. Das Passwort lässt sich später unter Einstellungen ändern.</p>`,
     `<button type="button" class="btn" data-close>Abbrechen</button><button class="btn red" id="sv">Anlegen</button>`,
     (f, close) => {
       f.onsubmit = async (e) => {
@@ -754,12 +755,44 @@ function openInviteForm() {
         try {
           await st.adminAction({ action: "create", name, email, password });
           close();
-          modal("Nutzer angelegt", `<p style="margin-bottom:12px">Bitte gib ${esc(name)} diese Zugangsdaten weiter:</p>
-            <div class="card" style="padding:12px 14px;line-height:1.9"><div><span class="muted">Adresse:</span> nordbeck-todo.github.io</div>
-            <div><span class="muted">E-Mail:</span> ${esc(email)}</div><div><span class="muted">Passwort:</span> <b>${esc(password)}</b></div></div>`,
-            `<button type="button" class="btn red" data-close>Fertig</button>`, () => {});
+          shareAccess(name, email, password, true);
         } catch (er) { b.disabled = false; fe.textContent = er.message; fe.classList.remove("hidden"); }
       };
+    });
+}
+function accessText(name, email, password, isNew) {
+  const first = (name || "").split(" ")[0];
+  return `Hallo ${first},
+
+${isNew ? "für dich ist ein Zugang zur Nordbeck To-Do App eingerichtet." : "dein Passwort für die Nordbeck To-Do App wurde zurückgesetzt."}
+
+App: ${location.origin}/
+E-Mail: ${email}
+Passwort: ${password}
+
+${isNew ? `So richtest du die App ein:
+1. Link öffnen und anmelden
+2. iPhone: Teilen → „Zum Home-Bildschirm“ · Android: Menü ⋮ → „App installieren“
+3. App über das neue Symbol öffnen und Erinnerungen erlauben
+
+` : ""}Das Passwort kannst du in der App unter Einstellungen ändern.`;
+}
+function shareAccess(name, email, password, isNew) {
+  const text = accessText(name, email, password, isNew);
+  modal(isNew ? "Nutzer angelegt" : "Passwort zurückgesetzt", `
+    <p style="margin-bottom:12px">Schick ${esc(name)} die Zugangsdaten:</p>
+    <div class="card" style="padding:12px 14px;line-height:1.9;margin-bottom:12px"><div><span class="muted">App:</span> ${esc(location.host)}</div>
+      <div><span class="muted">E-Mail:</span> ${esc(email)}</div><div><span class="muted">Passwort:</span> <b>${esc(password)}</b></div></div>
+    <p class="muted" style="font-size:13px">„Teilen“ öffnet die Auswahl deines Geräts (WhatsApp, Mail, SMS …). Der Text enthält auch eine kurze Einrichtungsanleitung.</p>`,
+    `<button type="button" class="btn" id="cp">Kopieren</button>${navigator.share ? `<button type="button" class="btn red" id="sh">${i("share")}Teilen</button>` : ""}<button type="button" class="btn${navigator.share ? "" : " red"}" data-close>Fertig</button>`,
+    (f) => {
+      f.onsubmit = (e) => e.preventDefault();
+      f.querySelector("#cp").onclick = async () => {
+        try { await navigator.clipboard.writeText(text); toast("Kopiert – jetzt z. B. in WhatsApp einfügen"); }
+        catch (_) { prompt("Zum Kopieren markieren:", text); }
+      };
+      const sh = f.querySelector("#sh");
+      if (sh) sh.onclick = async () => { try { await navigator.share({ title: "Zugang Nordbeck To-Do", text }); } catch (_) { /* abgebrochen */ } };
     });
 }
 function openPasswordForm(p) {
@@ -767,13 +800,13 @@ function openPasswordForm(p) {
   modal(`Passwort für ${p.name} zurücksetzen`, `
     <div class="err hidden" id="fe"></div>
     <div class="field"><label>Neues Passwort</label><input name="password" value="${pw}" minlength="8" required></div>
-    <p class="muted" style="font-size:13px">Gib das neue Passwort persönlich weiter.</p>`,
+    <p class="muted" style="font-size:13px">Nach dem Speichern kannst du die Zugangsdaten direkt per WhatsApp, Mail o. Ä. teilen.</p>`,
     `<button type="button" class="btn" data-close>Abbrechen</button><button class="btn red" id="sv">Speichern</button>`,
     (f, close) => {
       f.onsubmit = async (e) => {
         e.preventDefault();
         const fe = f.querySelector("#fe");
-        try { await st.adminAction({ action: "password", user_id: p.id, password: f.password.value }); toast("Passwort gesetzt"); close(); }
+        try { await st.adminAction({ action: "password", user_id: p.id, password: f.password.value }); close(); shareAccess(p.name, p.email, f.password.value, false); }
         catch (er) { fe.textContent = er.message; fe.classList.remove("hidden"); }
       };
     });
@@ -797,7 +830,7 @@ async function refreshPushCache() {
     if (pushCache && S.me) await st.savePushSubscription(pushCache).catch(() => {});
   } catch (_) { pushCache = null; }
 }
-async function enablePush() {
+async function enablePush(silent) {
   try {
     const perm = await Notification.requestPermission();
     if (perm !== "granted") return toast("Benachrichtigungen wurden nicht erlaubt.");
@@ -806,7 +839,7 @@ async function enablePush() {
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToUint8(VAPID_PUBLIC_KEY) });
     await st.savePushSubscription(sub);
     pushCache = sub;
-    toast("Erinnerungen aktiviert ✓");
+    if (!silent) toast("Erinnerungen aktiviert ✓");
   } catch (e) { toast("Aktivieren fehlgeschlagen: " + e.message); }
 }
 async function disablePush(silent) {
@@ -822,4 +855,19 @@ if ("serviceWorker" in navigator && "PushManager" in window) {
   navigator.serviceWorker.addEventListener("message", (e) => { if (e.data?.type === "open" && e.data.url) location.hash = e.data.url.replace(/^.*#/, "#"); });
 }
 
-boot().then(() => { if ("serviceWorker" in navigator && "PushManager" in window) refreshPushCache().then(() => { if (shellReady) route(); }); });
+// Erinnerungen standardmäßig an: Ist die Erlaubnis schon erteilt, wird das Gerät automatisch angemeldet.
+// Sonst fragt die App nach dem Start einmal nach (Browser verlangen dafür einen Tipp des Nutzers).
+async function autoPush() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !S.me) return;
+  if (Notification.permission === "granted" && !pushCache) await enablePush(true);
+  if (pushState() === "off" && !sessionStorage.getItem("pushAsked")) {
+    sessionStorage.setItem("pushAsked", "1");
+    modal("Erinnerungen einschalten", `<div style="display:flex;gap:14px;align-items:flex-start">${i("bell", "width:30px;height:30px;color:var(--accent);flex:none")}
+      <p>Damit du an Fristen und neue Aufgaben erinnert wirst, braucht die App einmalig deine Erlaubnis für Mitteilungen.</p></div>`,
+      `<button type="button" class="btn" data-close>Später</button><button class="btn red" id="pa">Einschalten</button>`,
+      (f, close) => { f.onsubmit = async (e) => { e.preventDefault(); close(); await enablePush(); route(); }; });
+  }
+}
+boot().then(async () => {
+  if ("serviceWorker" in navigator && "PushManager" in window) { await refreshPushCache(); await autoPush(); if (shellReady) route(); }
+});
