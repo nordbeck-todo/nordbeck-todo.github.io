@@ -568,10 +568,10 @@ function vUsers() {
   return {
     title: "Nutzer", noFab: true,
     html: `<div class="page-h"><h1>Nutzer</h1><button class="btn red" id="inv">${i("plus")}Nutzer anlegen</button></div>
-      <div class="card">${S.profiles.map((p) => `<div class="trow" style="cursor:default">${avatar(p.id, "lg")}
-        <div class="tt"><div class="ti">${esc(p.name)} ${p.is_admin ? '<span class="chip">Admin</span>' : ""} ${p.active ? "" : '<span class="chip" style="color:var(--accent)">gesperrt</span>'}</div>
+      <div class="card">${S.profiles.map((p) => `<div class="trow urow" style="cursor:default">${avatar(p.id, "lg")}
+        <div class="tt"><div class="ti">${esc(p.name)} ${p.id === S.me ? '<span class="chip">du</span>' : ""} ${p.is_admin ? '<span class="chip">Admin</span>' : ""} ${p.active ? "" : '<span class="chip" style="color:var(--accent)">gesperrt</span>'}</div>
           <div class="meta">${esc(p.email || "")}</div></div>
-        ${p.id === S.me ? '<span class="muted" style="font-size:12px">du</span>' : `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+        ${p.id === S.me ? "" : `<div class="uacts">
           <button class="btn sm" data-pw="${p.id}">Passwort</button>
           <button class="btn sm" data-adm="${p.id}">${p.is_admin ? "Admin entziehen" : "Zum Admin machen"}</button>
           <button class="btn sm ${p.active ? "danger" : ""}" data-act="${p.id}">${p.active ? "Sperren" : "Entsperren"}</button></div>`}</div>`).join("")}</div>

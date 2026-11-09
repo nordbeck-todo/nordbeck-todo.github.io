@@ -253,6 +253,13 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 }
 @media (min-width: 901px) { .trow .side-r { display: contents; } }
 @media (max-width: 1200px) and (min-width: 901px) { .stats { grid-template-columns: repeat(2, 1fr); } .cols:not(.cols2) { grid-template-columns: 1fr; } }
+.uacts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.urow .meta { word-break: break-word; }
+@media (max-width: 900px) {
+  .urow { flex-wrap: wrap; align-items: center !important; }
+  .urow .tt { flex: 1 1 calc(100% - 60px); }
+  .urow .uacts { width: 100%; justify-content: flex-start; padding-left: 46px; }
+}
 .mlist a { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
 .mlist a:last-child { border-bottom: none; }
 .mlist a .badge { margin-left: auto; }
