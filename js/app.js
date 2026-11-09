@@ -542,7 +542,7 @@ function vMore() {
   const w = st.waitingForMe().length, u = st.unreadCount();
   const l = (h, ic, t, b) => `<a href="${h}">${i(ic)}<span>${t}</span>${b ? `<span class="badge">${b}</span>` : ""}</a>`;
   return {
-    title: "Mehr",
+    title: "Mehr", noFab: true,
     html: `<div class="card mlist">${l("#/alle", "list", "Alle Aufgaben")}${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
       ${l("#/mitteilungen", "bell", "Benachrichtigungen", u)}${st.isAdmin() ? l("#/nutzer", "users", "Nutzer verwalten") : ""}${l("#/einstellungen", "gear", "Einstellungen")}</div>
       <form class="card" id="ms" style="margin-top:12px;padding:12px;display:flex;gap:8px"><input class="inp" name="q" placeholder="Suchen …"><button class="btn">${i("search")}</button></form>`,
@@ -566,7 +566,7 @@ function vSearch(q) {
 function vUsers() {
   if (!st.isAdmin()) return { title: "Nutzer", html: `<div class="empty">Nur für Admins.</div>` };
   return {
-    title: "Nutzer",
+    title: "Nutzer", noFab: true,
     html: `<div class="page-h"><h1>Nutzer</h1><button class="btn red" id="inv">${i("plus")}Nutzer anlegen</button></div>
       <div class="card">${S.profiles.map((p) => `<div class="trow" style="cursor:default">${avatar(p.id, "lg")}
         <div class="tt"><div class="ti">${esc(p.name)} ${p.is_admin ? '<span class="chip">Admin</span>' : ""} ${p.active ? "" : '<span class="chip" style="color:var(--accent)">gesperrt</span>'}</div>
@@ -600,9 +600,9 @@ function vSettings() {
   }[ps];
   const me = S.profile;
   return {
-    title: "Einstellungen",
+    title: "Einstellungen", noFab: true,
     html: `<div class="page-h"><h1>Einstellungen</h1></div>
-      <div class="cols" style="grid-template-columns:1fr 1fr">
+      <div class="cols cols2">
       <form class="card" id="pf"><div class="card-h"><h3>Mein Profil</h3></div><div style="padding:18px">
         <div class="field"><label>Name</label><input name="name" value="${esc(me.name)}" required></div>
         <div class="field"><label>Farbe</label><div class="pick">${COLORS.map((c) => `<label style="padding:4px"><input type="radio" name="color" value="${c}" ${c === me.color ? "checked" : ""}><span class="av" style="background:${c}">${esc(initials(me.name))}</span></label>`).join("")}</div></div>

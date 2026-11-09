@@ -92,6 +92,7 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
 .stat .s { font-size: 12px; color: var(--muted); }
 .stat .s.over { color: var(--accent); }
 .cols { display: grid; grid-template-columns: 1.65fr 1fr; gap: 16px; align-items: start; }
+.cols.cols2 { grid-template-columns: 1fr 1fr; }
 .card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
 .card-h h3 { font-size: 16px; font-weight: 600; }
 .card-f { padding: 12px 18px; }
@@ -225,7 +226,9 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
   .fab svg { width: 26px; height: 26px; stroke-width: 2.4; }
   .page-h { margin-bottom: 12px; } .page-h h1 { display: none; }
   .stats { grid-template-columns: 1fr 1fr; gap: 10px; } .stat { padding: 14px; } .stat .n { font-size: 26px; }
-  .cols, .detail { grid-template-columns: 1fr; }
+  .cols, .cols.cols2, .detail { grid-template-columns: 1fr !important; }
+  .cols2 .btn { width: 100%; white-space: normal; text-align: center; }
+  .cols2 .pick label { padding: 2px; }
   .trow { padding: 12px; align-items: flex-start; }
   .trow .due { width: auto; font-size: 12px; }
   .trow .due .ol { display: none; }
@@ -244,7 +247,7 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
   #toast { bottom: calc(100px + var(--safe-b)); }
 }
 @media (min-width: 901px) { .trow .side-r { display: contents; } }
-@media (max-width: 1200px) and (min-width: 901px) { .stats { grid-template-columns: repeat(2, 1fr); } .cols { grid-template-columns: 1fr; } }
+@media (max-width: 1200px) and (min-width: 901px) { .stats { grid-template-columns: repeat(2, 1fr); } .cols:not(.cols2) { grid-template-columns: 1fr; } }
 .mlist a { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
 .mlist a:last-child { border-bottom: none; }
 .mlist a .badge { margin-left: auto; }
