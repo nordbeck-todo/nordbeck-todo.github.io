@@ -11,6 +11,9 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overflow-x: hidden; overscroll-behavior-x: none; }
+.cols > *, .detail > *, .stats > *, .pgrid > * { min-width: 0; }
 body { font-family: Inter, InterVar, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text);
   font-size: 14px; line-height: 1.4; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
 a { color: var(--link); text-decoration: none; }
@@ -232,6 +235,8 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
   .modal { max-width: none; border-radius: 14px 14px 0 0; max-height: 94vh; }
   .modal .mf { padding-bottom: calc(12px + var(--safe-b)); }
   .row2 { grid-template-columns: 1fr; }
+  input, textarea, select, .inp { font-size: 16px !important; } /* verhindert automatisches Zoomen beim Tippen */
+  .note .tx { min-width: 0; flex-basis: calc(100% - 60px); }
   .kv { grid-template-columns: 100px 1fr; }
   #toast { bottom: calc(100px + var(--safe-b)); }
 }

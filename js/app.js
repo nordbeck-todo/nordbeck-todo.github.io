@@ -16,6 +16,8 @@ let setPwMode = new URLSearchParams(location.search).has("setpw");
 // Start
 // =====================================================================
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+// Zoomen verhindern (iPhone: Zwei-Finger-Zoom; Doppeltipp verhindert touch-action im CSS)
+["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
 
 async function boot() {
   const hashErr = new URLSearchParams(location.hash.slice(1)).get("error_description");
