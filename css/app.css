@@ -159,6 +159,10 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
   border: 1px solid var(--border); border-radius: 5px; padding: 9px 11px; background: #fff; outline: none; width: 100%; }
 .inp:focus, .field input:focus, .field textarea:focus, .field select:focus, .addline input:focus { border-color: #9a9da5; box-shadow: 0 0 0 3px #1d1f2310; }
 .field textarea { min-height: 90px; resize: vertical; }
+/* iPhone: Datumsfeld ist sonst breiter als der Rahmen und das Fenster lässt sich seitlich verschieben */
+input[type="date"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; min-height: 42px; line-height: 22px; text-align: left; }
+input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+.field > * { min-width: 0; max-width: 100%; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .pick { display: flex; flex-wrap: wrap; gap: 8px; }
 .pick label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px 4px 4px; cursor: pointer; font-size: 13px; color: var(--text); }
@@ -169,8 +173,9 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
 .err { color: var(--accent); font-size: 13px; margin-bottom: 10px; }
 
 /* Modal */
-.modal-bg { position: fixed; inset: 0; background: #0008; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fade .15s; }
-.modal { background: var(--card); border-radius: 10px; width: 100%; max-width: 560px; max-height: 92vh; overflow: auto; box-shadow: 0 20px 60px #0005; }
+.modal-bg { position: fixed; inset: 0; background: #0008; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fade .15s; overflow: hidden; overscroll-behavior: contain; }
+.modal { background: var(--card); border-radius: 10px; width: 100%; max-width: 560px; max-height: 92vh; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; box-shadow: 0 20px 60px #0005; }
+.modal .mb { overflow-x: hidden; }
 .modal .card-h { position: sticky; top: 0; background: var(--card); z-index: 1; }
 .modal .mb { padding: 18px; }
 .modal .mf { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); position: sticky; bottom: 0; background: var(--card); }
