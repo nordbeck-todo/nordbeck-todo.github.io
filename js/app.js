@@ -119,6 +119,7 @@ const NAV = [
 ];
 function shell() {
   $app.innerHTML = `
+  <div class="safe-top"></div>
   <aside class="side">
     <a class="logo" href="#/"><img src="img/logo.png" alt="Tischlermeister Nordbeck"></a>
     <form class="search" id="ss">${i("search")}<input placeholder="Suche" name="q"></form>
