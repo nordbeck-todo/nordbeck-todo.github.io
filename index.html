@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="Nordbeck To-Do">
   <title>Nordbeck To-Do</title>
   <!-- Installierte App auf iPhone/iPad: Kennzeichen VOR dem ersten Zeichnen setzen (gleiche Lösung wie in der KC-App) -->
-  <script>try{if(window.navigator.standalone===true)document.documentElement.classList.add('ios-app');}catch(e){}</script>
+  <script>try{var d=document.documentElement,n=navigator,ipad=/iPad/.test(n.userAgent)||(/Macintosh/.test(n.userAgent)&&n.maxTouchPoints>1),app=n.standalone===true||matchMedia('(display-mode: standalone)').matches;if(app)d.classList.add('ios-app');if(ipad)d.classList.add('ipad');}catch(e){}</script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/favicon.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">

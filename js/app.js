@@ -636,7 +636,7 @@ function vSettings() {
       const pr = document.createElement("div");
       pr.style.cssText = "position:fixed;top:0;left:0;visibility:hidden;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)";
       document.body.appendChild(pr); const cs = getComputedStyle(pr);
-      r.querySelector("#diag").textContent = `Technik: ${innerWidth}×${innerHeight} · Bildschirm ${screen.width}×${screen.height} · oben ${cs.paddingTop} unten ${cs.paddingBottom} · var ${getComputedStyle(document.documentElement).getPropertyValue("--safe-t") || "-"} · ios ${isIOS()} · app ${isStandalone()} · mode ${["standalone","fullscreen","minimal-ui","browser"].find((m) => matchMedia("(display-mode: " + m + ")").matches)} · dpr ${devicePixelRatio}`;
+      r.querySelector("#diag").textContent = `Technik: ${innerWidth}×${innerHeight} · Bildschirm ${screen.width}×${screen.height} · oben ${cs.paddingTop} unten ${cs.paddingBottom} · var ${getComputedStyle(document.documentElement).getPropertyValue("--safe-t") || "-"} · ios ${isIOS()} · app ${isStandalone()} · mode ${["standalone","fullscreen","minimal-ui","browser"].find((m) => matchMedia("(display-mode: " + m + ")").matches)} · dpr ${devicePixelRatio} · klassen ${document.documentElement.className}`;
       pr.remove();
       r.querySelector("#lo").onclick = async () => { await disablePush(true); await sb.auth.signOut(); };
     },

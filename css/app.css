@@ -88,6 +88,9 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
 /* Installierte App auf iPhone/iPad (wie KC-App 1.57): Das System legt unter der Statusleiste eine Unschärfe über den Inhalt,
    die gut 15 Punkte weiter nach unten reicht als der Sicherheitsabstand. Deshalb 16 px dazu und dort ein deckender dunkler Streifen. */
 html.ios-app { --safe-t: calc(env(safe-area-inset-top, 0px) + 16px); }
+/* iPad: iPadOS 26 meldet für die Statusleiste oft 0 und erkennt die Web-App nicht immer als „installiert“.
+   Deshalb auf dem iPad immer mindestens die Höhe der Statusleiste (24 px) + 16 px Schleier freihalten. */
+html.ipad { --safe-t: calc(max(env(safe-area-inset-top, 0px), 24px) + 16px); }
 /* Bereich der Wischleiste unten: feste, ruhige Fläche statt durchscrollendem (weichgezeichnetem) Inhalt */
 .safe-bottom { position: fixed; bottom: 0; left: var(--side-w); right: 0; height: var(--safe-b); background: var(--bg); z-index: 30; }
 /* Falls das Gerät unterhalb des App-Fensters noch einen Streifen zeigt: links dunkel (Seitenleiste), rechts Hintergrund */
