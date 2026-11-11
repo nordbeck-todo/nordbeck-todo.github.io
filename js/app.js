@@ -644,7 +644,7 @@ function vSettings() {
           <div class="field"><label>Neues Passwort (mind. 8 Zeichen)</label><input type="password" name="a" minlength="8" autocomplete="new-password" required></div>
           <button class="btn">Passwort ändern</button></div></form>
         <div class="card" style="padding:18px;display:flex;justify-content:space-between;align-items:center">
-          <span class="muted" style="font-size:12px">Nordbeck To-Do · Version ${APP_VERSION}</span><button class="btn" id="lo">${i("logout")}Abmelden</button></div>
+          <span class="muted" style="font-size:12px">Nordbeck To-Do · Version ${APP_VERSION}<br><span id="diag" style="font-size:11px"></span></span><button class="btn" id="lo">${i("logout")}Abmelden</button></div>
       </div></div>`,
     after(r) {
       r.querySelector("#pf").onsubmit = async (e) => {
@@ -658,6 +658,11 @@ function vSettings() {
       };
       const on = r.querySelector("#pon"); if (on) on.onclick = async () => { await enablePush(); route(); };
       const off = r.querySelector("#poff"); if (off) off.onclick = async () => { await disablePush(); route(); };
+      const pr = document.createElement("div");
+      pr.style.cssText = "position:fixed;top:0;left:0;visibility:hidden;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)";
+      document.body.appendChild(pr); const cs = getComputedStyle(pr);
+      r.querySelector("#diag").textContent = `Technik: ${innerWidth}×${innerHeight} · Bildschirm ${screen.width}×${screen.height} · oben ${cs.paddingTop} unten ${cs.paddingBottom} · var ${getComputedStyle(document.documentElement).getPropertyValue("--safe-t") || "-"} · ios ${isIOS()} · app ${isStandalone()} · mode ${["standalone","fullscreen","minimal-ui","browser"].find((m) => matchMedia("(display-mode: " + m + ")").matches)} · dpr ${devicePixelRatio}`;
+      pr.remove();
       r.querySelector("#lo").onclick = async () => { await disablePush(true); await sb.auth.signOut(); };
     },
   };
