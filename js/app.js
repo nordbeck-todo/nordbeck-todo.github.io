@@ -16,31 +16,6 @@ let setPwMode = new URLSearchParams(location.search).has("setpw");
 // Start
 // =====================================================================
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
-// iPad/iPhone als App: Manche iPadOS-Versionen legen die App unter die Statusleiste, melden aber keinen Abstand
-// (safe-area-inset-top = 0) und machen das Fenster um genau diese Höhe kürzer. Dann messen wir die Lücke selbst.
-function fixIOSInsets() {
-  if (!isIOS() || !isStandalone()) return;
-  const probe = document.createElement("div");
-  probe.style.cssText = "position:fixed;top:0;left:0;visibility:hidden;padding-top:env(safe-area-inset-top)";
-  document.body.appendChild(probe);
-  const envTop = parseFloat(getComputedStyle(probe).paddingTop) || 0;
-  probe.remove();
-  const root = document.documentElement;
-  const land = matchMedia("(orientation: landscape)").matches;
-  const gap = Math.round((land ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height)) - window.innerHeight);
-  const isPad = Math.min(screen.width, screen.height) >= 700;
-  // iPadOS 26 zeichnet oben immer einen Schleier über die App (Statusleiste/Fenstergriff) und meldet dafür 0.
-  // Wir reservieren dort einen dunklen Streifen von mindestens 24 px, damit der Schleier auf Dunkel liegt.
-  let top = envTop;
-  if (!top && gap >= 12 && gap <= 70) top = gap;
-  if (isPad) top = Math.max(top, 24);
-  if (top > envTop) root.style.setProperty("--safe-t", top + "px"); else root.style.removeProperty("--safe-t");
-  root.classList.toggle("ipad-app", isPad);
-}
-fixIOSInsets();
-addEventListener("resize", fixIOSInsets);
-addEventListener("orientationchange", () => setTimeout(fixIOSInsets, 300));
-
 // Zoomen verhindern (iPhone: Zwei-Finger-Zoom; Doppeltipp verhindert touch-action im CSS)
 ["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
 
