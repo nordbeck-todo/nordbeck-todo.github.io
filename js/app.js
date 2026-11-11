@@ -213,8 +213,8 @@ function updateChrome(path, v) {
     <div class="mrow"><span class="mside">${v.back ? `<a class="back" href="${v.back}" aria-label="Zurück">${i("back", "width:22px;height:22px")}</a>` : ""}</span>
       <a href="#/" class="mlogo"><img src="img/logo.png" alt="Tischlermeister Nordbeck"></a><span class="mside r">${bell}</span></div>
     <div class="mtitle">${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ""}<div class="ptitle">${esc(v.title)}</div></div>`;
-  const mn = [["#/", "home", "Übersicht", ""], ["#/aufgaben", "check", "Aufgaben", "aufgaben"], ["#/projekte", "folder", "Projekte", "projekt"], ["#/mehr", "more", "Mehr", "mehr"]];
-  const moreKeys = ["alle", "ideen", "pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
+  const mn = [["#/", "home", "Übersicht", ""], ["#/aufgaben", "check", "Aufgaben", "aufgaben"], ["#/projekte", "folder", "Projekte", "projekt"], ["#/ideen", "bulb", "Ideen", "ideen"], ["#/mehr", "more", "Mehr", "mehr"]];
+  const moreKeys = ["alle", "pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
   const w = st.waitingForMe().length;
   document.getElementById("mnav").innerHTML = mn.map(([h, ic, t, key]) => {
     const act = key === "" ? path === "" : key === "mehr" ? moreKeys.some((k) => path.startsWith(k)) : path.startsWith(key) || (key === "aufgaben" && path.startsWith("aufgabe/"));
@@ -590,7 +590,7 @@ function vMore() {
   const l = (h, ic, t, b) => `<a href="${h}">${i(ic)}<span>${t}</span>${b ? `<span class="badge">${b}</span>` : ""}</a>`;
   return {
     title: "Mehr", noFab: true,
-    html: `<div class="card mlist">${l("#/ideen", "bulb", "Ideen")}${l("#/alle", "list", "Alle Aufgaben")}${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
+    html: `<div class="card mlist">${l("#/alle", "list", "Alle Aufgaben")}${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
       ${l("#/mitteilungen", "bell", "Benachrichtigungen", u)}${st.isAdmin() ? l("#/nutzer", "users", "Nutzer verwalten") : ""}${l("#/einstellungen", "gear", "Einstellungen")}</div>
       <form class="card" id="ms" style="margin-top:12px;padding:12px;display:flex;gap:8px"><input class="inp" name="q" placeholder="Suchen …"><button class="btn">${i("search")}</button></form>`,
     after(r) { r.querySelector("#ms").onsubmit = (e) => { e.preventDefault(); const q = e.target.q.value.trim(); if (q) location.hash = "#/suche/" + encodeURIComponent(q); }; },

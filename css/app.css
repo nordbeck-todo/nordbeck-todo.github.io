@@ -245,7 +245,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
   .mhead .back { color: #fff; display: flex; padding: 4px 4px 4px 0; }
   .mnav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; background: var(--side); padding: 8px 6px calc(8px + var(--safe-b)); }
   .mnav a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; color: #8a8c92; position: relative; }
-  .mnav a span.ic { border-radius: 14px; padding: 3px 16px; display: flex; }
+  .mnav a span.ic { border-radius: 14px; padding: 3px 14px; display: flex; }
   .mnav a.act { color: #fff; font-weight: 600; } .mnav a.act span.ic { background: var(--side-active); }
   .mnav a svg { width: 22px; height: 22px; }
   .mnav a .badge { position: absolute; top: -3px; left: 50%; margin-left: 8px; font-size: 10px; }
