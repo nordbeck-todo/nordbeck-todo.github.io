@@ -26,11 +26,16 @@ function fixIOSInsets() {
   const envTop = parseFloat(getComputedStyle(probe).paddingTop) || 0;
   probe.remove();
   const root = document.documentElement;
-  if (envTop > 0) { root.style.removeProperty("--safe-t"); return; }
   const land = matchMedia("(orientation: landscape)").matches;
   const gap = Math.round((land ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height)) - window.innerHeight);
-  if (gap >= 12 && gap <= 70) root.style.setProperty("--safe-t", gap + "px");
-  else root.style.removeProperty("--safe-t");
+  const isPad = Math.min(screen.width, screen.height) >= 700;
+  // iPadOS 26 zeichnet oben immer einen Schleier über die App (Statusleiste/Fenstergriff) und meldet dafür 0.
+  // Wir reservieren dort einen dunklen Streifen von mindestens 24 px, damit der Schleier auf Dunkel liegt.
+  let top = envTop;
+  if (!top && gap >= 12 && gap <= 70) top = gap;
+  if (isPad) top = Math.max(top, 24);
+  if (top > envTop) root.style.setProperty("--safe-t", top + "px"); else root.style.removeProperty("--safe-t");
+  root.classList.toggle("ipad-app", isPad);
 }
 fixIOSInsets();
 addEventListener("resize", fixIOSInsets);

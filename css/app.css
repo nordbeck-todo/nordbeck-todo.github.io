@@ -85,6 +85,8 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
 .main { margin-left: var(--side-w); padding: calc(var(--top-h) + var(--safe-t) + 20px) 22px calc(30px + var(--safe-b)); max-width: 1500px; }
 /* iPad/iPhone als App: Bereich der Statusleiste dunkel hinterlegen statt Inhalt darunter durchscheinen zu lassen */
 .safe-top { position: fixed; top: 0; left: 0; right: 0; height: var(--safe-t); background: var(--side); z-index: 30; }
+/* iPad als App: oberen Rand der Kopfzeile dunkel verlängern, damit der Systemschleier nicht hell auf Weiß liegt */
+.ipad-app .safe-top { height: calc(var(--safe-t) + 4px); box-shadow: 0 1px 0 #0003; }
 /* Bereich der Wischleiste unten: feste, ruhige Fläche statt durchscrollendem (weichgezeichnetem) Inhalt */
 .safe-bottom { position: fixed; bottom: 0; left: var(--side-w); right: 0; height: var(--safe-b); background: var(--bg); z-index: 30; }
 /* Falls das Gerät unterhalb des App-Fensters noch einen Streifen zeigt: links dunkel (Seitenleiste), rechts Hintergrund */
