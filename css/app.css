@@ -10,7 +10,7 @@
   --safe-b: env(safe-area-inset-bottom, 0px); --safe-t: env(safe-area-inset-top, 0px);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
+html, body { min-height: 100%; }
 html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { overflow-x: hidden; overscroll-behavior-x: none; }
 .cols > *, .detail > *, .stats > *, .pgrid > * { min-width: 0; }
@@ -87,7 +87,7 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
 .safe-top { position: fixed; top: 0; left: 0; right: 0; height: var(--safe-t); background: var(--side); z-index: 30; }
 /* Installierte App auf iPhone/iPad (wie KC-App 1.57): Das System legt unter der Statusleiste eine Unschärfe über den Inhalt,
    die gut 15 Punkte weiter nach unten reicht als der Sicherheitsabstand. Deshalb 16 px dazu und dort ein deckender dunkler Streifen. */
-html.ios-app { --safe-t: calc(env(safe-area-inset-top, 0px) + 16px); }
+/* (iPhone: Abstand kommt direkt vom System, kein Zuschlag nötig) */
 /* iPad: iPadOS 26 meldet für die Statusleiste oft 0 und erkennt die Web-App nicht immer als „installiert“.
    Deshalb auf dem iPad immer mindestens die Höhe der Statusleiste (24 px) + 16 px Schleier freihalten. */
 html.ipad { --safe-t: calc(max(env(safe-area-inset-top, 0px), 32px) + 16px); }
@@ -99,13 +99,12 @@ html.ipad { --safe-t: calc(max(env(safe-area-inset-top, 0px), 32px) + 16px); }
   html, body { min-height: max(100vh, 100lvh); }
   body::before { content: ""; position: fixed; top: 0; left: 0; width: var(--side-w); height: max(100vh, 100lvh); background: var(--side); z-index: 0; pointer-events: none; }
 }
-/* Kein Gummiband-Effekt beim Überziehen */
-html, body { overscroll-behavior: none; }
+
 /* Bereich der Wischleiste unten: feste, ruhige Fläche statt durchscrollendem (weichgezeichnetem) Inhalt */
 .safe-bottom { position: fixed; bottom: 0; left: var(--side-w); right: 0; height: var(--safe-b); background: var(--bg); z-index: 30; }
 /* Falls das Gerät unterhalb des App-Fensters noch einen Streifen zeigt: links dunkel (Seitenleiste), rechts Hintergrund */
 @media (min-width: 901px) { html { background: linear-gradient(to right, var(--side) var(--side-w), var(--bg) var(--side-w)); } }
-@media (max-width: 900px) { html { background: var(--side); } }
+@media (max-width: 900px) { html { background: var(--bg); } }
 @media (max-width: 900px) { .safe-bottom { display: none; } }
 .page-h { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .page-h h1 { font-size: 22px; font-weight: 600; }
