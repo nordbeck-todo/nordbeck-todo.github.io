@@ -90,7 +90,7 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
 html.ios-app { --safe-t: calc(env(safe-area-inset-top, 0px) + 16px); }
 /* iPad: iPadOS 26 meldet für die Statusleiste oft 0 und erkennt die Web-App nicht immer als „installiert“.
    Deshalb auf dem iPad immer mindestens die Höhe der Statusleiste (24 px) + 16 px Schleier freihalten. */
-html.ipad { --safe-t: calc(max(env(safe-area-inset-top, 0px), 24px) + 16px); }
+html.ipad { --safe-t: calc(max(env(safe-area-inset-top, 0px), 32px) + 16px); }
 /* iPad als App (WebKit-Fehler 236445): Mit durchscheinender Statusleiste endet „unten“ um die Höhe der Statusleiste
    zu früh. Seitenleiste und Bodenstreifen deshalb um genau diese Höhe nach unten verlängern. */
 html.ipad.ios-app .side { bottom: calc(-1 * env(safe-area-inset-top, 0px)); padding-bottom: calc(10px + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px)); }
