@@ -136,25 +136,62 @@ function shell() {
   </aside>
   <header class="top">
     <form class="search" id="ts">${i("search")}<input placeholder="Aufgaben und Projekte durchsuchen …" name="q"></form>
-    <button class="btn red" data-new>${i("plus")}Neu</button>
+    <button class="btn red" data-newmenu aria-haspopup="menu">${i("plus")}Neu</button>
     <a class="iconbtn" href="#/mitteilungen" title="Benachrichtigungen">${i("bell")}<span class="badge hidden" id="tbadge"></span></a>
     <a href="#/einstellungen" title="Einstellungen" id="tav"></a>
   </header>
   <header class="mhead" id="mhead"></header>
   <main class="main" id="main"></main>
   <nav class="mnav" id="mnav"></nav>
-  <button class="fab" data-new aria-label="Neue Aufgabe">${i("plus")}</button>`;
+  <button class="fab" data-newmenu aria-haspopup="menu" aria-label="Neu anlegen">${i("plus")}</button>
+  <div class="newmenu hidden" id="newmenu" role="menu">
+    <button type="button" role="menuitem" data-nm="task">${i("check")}<span><b>Aufgabe</b><small>mit Frist und Zuständigen</small></span></button>
+    <button type="button" role="menuitem" data-nm="idea">${i("bulb")}<span><b>Idee</b><small>nur festhalten, später übernehmen</small></span></button>
+    <button type="button" role="menuitem" data-nm="project">${i("folder")}<span><b>Projekt</b><small>mehrere Aufgaben bündeln</small></span></button>
+  </div>
+  <div class="newmenu-bg hidden" id="newmenu-bg"></div>`;
   for (const id of ["ss", "ts"]) document.getElementById(id).onsubmit = (e) => {
     e.preventDefault(); const q = e.target.q.value.trim(); if (q) location.hash = "#/suche/" + encodeURIComponent(q);
   };
   $app.addEventListener("click", (e) => {
+    const m = e.target.closest("[data-newmenu]");
+    if (m) { e.preventDefault(); return toggleNewMenu(m); }
+    const c = e.target.closest("[data-nm]");
+    if (c) {
+      closeNewMenu();
+      const k = c.dataset.nm;
+      if (k === "task") openTaskForm(null, { project_id: currentProject() });
+      else if (k === "idea") openIdeaForm();
+      else openProjectForm();
+      return;
+    }
+    if (e.target.id === "newmenu-bg") return closeNewMenu();
     const n = e.target.closest("[data-new]");
-    if (!n) return;
-    e.preventDefault();
-    if (location.hash.startsWith("#/ideen")) openIdeaForm(); else openTaskForm(null, { project_id: currentProject() });
+    if (n) { e.preventDefault(); openTaskForm(null, { project_id: currentProject() }); }
   });
   shellReady = true;
 }
+// Auswahl beim Plus: Aufgabe, Idee oder Projekt
+function toggleNewMenu(btn) {
+  const menu = document.getElementById("newmenu"), bg = document.getElementById("newmenu-bg");
+  if (!menu.classList.contains("hidden")) return closeNewMenu();
+  const fab = btn.classList.contains("fab");
+  menu.classList.toggle("from-fab", fab);
+  if (!fab) { const r = btn.getBoundingClientRect(); menu.style.top = r.bottom + 6 + "px"; menu.style.right = Math.max(8, innerWidth - r.right) + "px"; }
+  else { menu.style.top = ""; menu.style.right = ""; }
+  menu.classList.remove("hidden"); bg.classList.remove("hidden");
+  document.querySelector(".fab").classList.add("open");
+  document.addEventListener("keydown", escNewMenu);
+}
+function closeNewMenu() {
+  document.getElementById("newmenu")?.classList.add("hidden");
+  document.getElementById("newmenu-bg")?.classList.add("hidden");
+  document.querySelector(".fab")?.classList.remove("open");
+  document.removeEventListener("keydown", escNewMenu);
+}
+function escNewMenu(e) { if (e.key === "Escape") closeNewMenu(); }
+window.addEventListener("hashchange", closeNewMenu);
+
 function currentProject() { const m = location.hash.match(/^#\/projekt\/([^/]+)/); return m && m[1] !== "allgemein" ? m[1] : null; }
 
 function updateChrome(path, v) {
