@@ -6,5 +6,6 @@ Aufgaben-App für Aufgaben außerhalb des Tagesgeschäfts – Tischlermeister No
 - Backend: Supabase (Region Frankfurt), Projekt `nordbeck-todo`
 - `supabase/01_schema.sql` – Tabellen, Rechte, Trigger, Fristerinnerung
 - `supabase/02_push.sql` – Push-Anbindung
+- `supabase/03_ideen.sql` – Ideen-Bereich (ab v1.0.19)
 - `supabase/functions/send-push` – verschickt Push-Nachrichten (Secret: `VAPID_PRIVATE_KEY`)
 - `supabase/functions/invite-user` – Nutzer anlegen, Passwort zurücksetzen, sperren (nur Admins)

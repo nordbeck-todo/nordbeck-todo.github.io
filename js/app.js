@@ -121,7 +121,7 @@ function renderSetPassword() {
 // =====================================================================
 const NAV = [
   ["#/", "home", "Übersicht"], ["#/aufgaben", "check", "Meine Aufgaben", () => st.myOpen().length],
-  ["#/alle", "list", "Alle Aufgaben"], ["#/projekte", "folder", "Projekte"],
+  ["#/alle", "list", "Alle Aufgaben"], ["#/projekte", "folder", "Projekte"], ["#/ideen", "bulb", "Ideen"],
   ["#/pruefung", "eye", "Zur Prüfung", () => st.waitingForMe().length], ["#/archiv", "archive", "Archiv"],
 ];
 function shell() {
@@ -149,7 +149,9 @@ function shell() {
   };
   $app.addEventListener("click", (e) => {
     const n = e.target.closest("[data-new]");
-    if (n) { e.preventDefault(); openTaskForm(null, { project_id: currentProject() }); }
+    if (!n) return;
+    e.preventDefault();
+    if (location.hash.startsWith("#/ideen")) openIdeaForm(); else openTaskForm(null, { project_id: currentProject() });
   });
   shellReady = true;
 }
@@ -175,7 +177,7 @@ function updateChrome(path, v) {
       <a href="#/" class="mlogo"><img src="img/logo.png" alt="Tischlermeister Nordbeck"></a><span class="mside r">${bell}</span></div>
     <div class="mtitle">${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ""}<div class="ptitle">${esc(v.title)}</div></div>`;
   const mn = [["#/", "home", "Übersicht", ""], ["#/aufgaben", "check", "Aufgaben", "aufgaben"], ["#/projekte", "folder", "Projekte", "projekt"], ["#/mehr", "more", "Mehr", "mehr"]];
-  const moreKeys = ["alle", "pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
+  const moreKeys = ["alle", "ideen", "pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
   const w = st.waitingForMe().length;
   document.getElementById("mnav").innerHTML = mn.map(([h, ic, t, key]) => {
     const act = key === "" ? path === "" : key === "mehr" ? moreKeys.some((k) => path.startsWith(k)) : path.startsWith(key) || (key === "aufgaben" && path.startsWith("aufgabe/"));
@@ -194,7 +196,7 @@ function updateChrome(path, v) {
 const ROUTES = [
   [/^$/, vDashboard], [/^aufgaben$/, vMine], [/^alle$/, vAll], [/^projekte$/, vProjects], [/^projekt\/([^/]+)$/, vProject],
   [/^aufgabe\/([^/]+)$/, vTask], [/^pruefung$/, vReview], [/^archiv$/, vArchive], [/^mitteilungen$/, vNotifications],
-  [/^nutzer$/, vUsers], [/^einstellungen$/, vSettings], [/^mehr$/, vMore], [/^suche\/(.+)$/, vSearch],
+  [/^ideen$/, vIdeas], [/^nutzer$/, vUsers], [/^einstellungen$/, vSettings], [/^mehr$/, vMore], [/^suche\/(.+)$/, vSearch],
 ];
 let lastPath = null;
 function route() {
@@ -551,7 +553,7 @@ function vMore() {
   const l = (h, ic, t, b) => `<a href="${h}">${i(ic)}<span>${t}</span>${b ? `<span class="badge">${b}</span>` : ""}</a>`;
   return {
     title: "Mehr", noFab: true,
-    html: `<div class="card mlist">${l("#/alle", "list", "Alle Aufgaben")}${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
+    html: `<div class="card mlist">${l("#/ideen", "bulb", "Ideen")}${l("#/alle", "list", "Alle Aufgaben")}${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
       ${l("#/mitteilungen", "bell", "Benachrichtigungen", u)}${st.isAdmin() ? l("#/nutzer", "users", "Nutzer verwalten") : ""}${l("#/einstellungen", "gear", "Einstellungen")}</div>
       <form class="card" id="ms" style="margin-top:12px;padding:12px;display:flex;gap:8px"><input class="inp" name="q" placeholder="Suchen …"><button class="btn">${i("search")}</button></form>`,
     after(r) { r.querySelector("#ms").onsubmit = (e) => { e.preventDefault(); const q = e.target.q.value.trim(); if (q) location.hash = "#/suche/" + encodeURIComponent(q); }; },
@@ -562,12 +564,69 @@ function vSearch(q) {
   const s = q.toLowerCase();
   const ts = S.tasks.filter((t) => (t.title + " " + (t.description || "")).toLowerCase().includes(s));
   const ps = S.projects.filter((p) => (p.name + " " + (p.description || "")).toLowerCase().includes(s));
+  const is = S.ideas.filter((x) => (x.title + " " + (x.description || "")).toLowerCase().includes(s));
   return {
     title: `Suche: ${q}`, back: "#/",
     html: `<div class="page-h"><h1>Suche: „${esc(q)}“</h1></div>
       ${ps.length ? `<div class="pgrid" style="margin-bottom:16px">${ps.map(projectCard).join("")}</div>` : ""}
-      <div class="card list-cards">${taskList(st.sortTasks(ts), { group: false, empty: "Keine Treffer." })}</div>`,
-    after: bindList,
+      <div class="card list-cards">${taskList(st.sortTasks(ts), { group: false, empty: is.length ? "Keine Aufgaben gefunden." : "Keine Treffer." })}</div>
+      ${is.length ? `<h3 style="font-size:15px;margin:18px 2px 10px">Ideen</h3><div class="card list-cards">${is.map(ideaRow).join("")}</div>` : ""}`,
+    after(r) { bindList(r); bindIdeas(r); },
+  };
+}
+
+// ---------- Ideen ----------
+function ideaRow(x) {
+  const p = x.project_id ? st.project(x.project_id) : null;
+  const t = x.task_id ? st.task(x.task_id) : null;
+  let meta = "";
+  if (p) meta += `<span class="chip">${esc(p.name)}</span>`;
+  if (x.status === "adopted") meta += `<span class="chip" style="background:#e3f4ea;color:#1a7a45">übernommen${x.adopted_at ? " " + fmtDate(x.adopted_at.slice(0, 10)) : ""}</span>`;
+  meta += `<span class="m">${esc(st.profile(x.created_by)?.name || "")} · ${fmtTime(x.created_at)}</span>`;
+  const act = x.status === "open"
+    ? `<button class="btn sm" data-adopt="${x.id}" title="Als Aufgabe übernehmen">${i("check", "width:15px;height:15px")}Als Aufgabe</button>`
+    : t ? `<a class="btn sm" href="#/aufgabe/${t.id}" data-stop>Zur Aufgabe</a>` : `<span class="muted" style="font-size:12px">Aufgabe gelöscht</span>`;
+  return `<div class="trow irow" data-idea="${x.id}"><span class="ibulb ${x.status}">${i("bulb")}</span>
+    <div class="tt"><div class="ti">${esc(x.title)}</div>${x.description ? `<div class="idesc">${esc(x.description)}</div>` : ""}<div class="meta">${meta}</div></div>
+    <div class="side-r"><div class="iact">${act}</div></div></div>`;
+}
+function bindIdeas(root) {
+  root.querySelectorAll("[data-adopt]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); adoptIdea(st.idea(b.dataset.adopt)); });
+  root.querySelectorAll("[data-stop]").forEach((a) => a.onclick = (e) => e.stopPropagation());
+  root.querySelectorAll("[data-idea]").forEach((r) => r.onclick = () => openIdeaForm(st.idea(r.dataset.idea)));
+}
+function adoptIdea(x) {
+  if (!x) return;
+  openTaskForm(null, { title: x.title, description: x.description || "", project_id: x.project_id || currentProject(), idea_id: x.id });
+}
+
+let ideaTab = "open";
+function vIdeas() {
+  if (S.ideasMissing) return { title: "Ideen", noFab: true,
+    html: `<div class="page-h"><h1>Ideen</h1></div><div class="card empty">Der Ideen-Bereich ist noch nicht eingerichtet.<br>Ein Admin muss einmalig die Datenbank-Erweiterung <b>03_ideen.sql</b> in Supabase ausführen.</div>` };
+  const open = S.ideas.filter((x) => x.status === "open"), done = S.ideas.filter((x) => x.status === "adopted");
+  const list = ideaTab === "open" ? open : done;
+  return {
+    title: "Ideen",
+    html: `<div class="page-h"><h1>Ideen</h1><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${seg([["open", `Offen · ${open.length}`], ["adopted", `Übernommen · ${done.length}`]], ideaTab, "it")}
+        <button class="btn red" id="ni">${i("plus")}Idee</button></div></div>
+      <form class="card iquick" id="iq">${i("bulb", "color:var(--warn)")}<input id="iqin" placeholder="Idee schnell notieren …" autocomplete="off" maxlength="200"><button class="btn red sm">Notieren</button></form>
+      <p class="muted" style="font-size:13px;margin:0 2px 12px">Hier landet alles, was man nicht vergessen will, aber noch keine Aufgabe ist. Mit „Als Aufgabe“ wird daraus eine Aufgabe – Titel und Beschreibung werden übernommen.</p>
+      <div class="card list-cards">${list.map(ideaRow).join("") || `<div class="empty">${ideaTab === "open" ? "Noch keine Ideen notiert." : "Noch keine Idee übernommen."}</div>`}</div>`,
+    after(r) {
+      bindIdeas(r);
+      r.querySelectorAll("[data-it]").forEach((b) => b.onclick = () => { ideaTab = b.dataset.it; route(); });
+      r.querySelector("#ni").onclick = () => openIdeaForm();
+      r.querySelector("#iq").onsubmit = async (e) => {
+        e.preventDefault();
+        const inp = r.querySelector("#iqin"), v = inp.value.trim();
+        if (!v) return;
+        inp.value = "";
+        try { await st.createIdea({ title: v }); ideaTab = "open"; toast("Idee notiert"); route(); document.getElementById("iqin")?.focus(); }
+        catch (er) { inp.value = v; toast(er.message); }
+      };
+    },
   };
 }
 
@@ -675,11 +734,11 @@ function modal(title, body, foot, onMount) {
 
 function openTaskForm(t, preset = {}) {
   const edit = !!t;
-  const d = t || { title: "", description: "", project_id: preset.project_id || "", due_date: "", priority: 2, needs_approval: false };
+  const d = t || { title: preset.title || "", description: preset.description || "", project_id: preset.project_id || "", due_date: "", priority: 2, needs_approval: false };
   const ass = edit ? st.assigneesOf(t.id) : [S.me];
   const projs = st.activeProjects();
   if (d.project_id && !projs.find((p) => p.id === d.project_id)) { const pp = st.project(d.project_id); if (pp) projs.push(pp); }
-  modal(edit ? "Aufgabe bearbeiten" : "Neue Aufgabe", `
+  modal(edit ? "Aufgabe bearbeiten" : preset.idea_id ? "Idee als Aufgabe übernehmen" : "Neue Aufgabe", `
     <div class="err hidden" id="fe"></div>
     <div class="field"><label>Titel *</label><input name="title" value="${esc(d.title)}" maxlength="200" required></div>
     <div class="field"><label>Beschreibung</label><textarea name="description">${esc(d.description || "")}</textarea></div>
@@ -709,10 +768,64 @@ function openTaskForm(t, preset = {}) {
           if (edit) { await st.updateTask(t.id, data, a); toast("Gespeichert"); close(); }
           else {
             const ck = (f.ck.value || "").split("\n").map((s) => s.trim()).filter(Boolean);
-            const nt = await st.createTask(data, a, ck); toast("Aufgabe angelegt"); close();
+            const nt = await st.createTask(data, a, ck);
+            if (preset.idea_id) { try { await st.adoptIdea(preset.idea_id, nt.id); } catch (_) { toast("Aufgabe angelegt – Idee konnte nicht als übernommen markiert werden"); } }
+            toast(preset.idea_id ? "Idee als Aufgabe übernommen" : "Aufgabe angelegt"); close();
             if (!location.hash.startsWith("#/projekt/")) location.hash = "#/aufgabe/" + nt.id;
           }
         } catch (er) { b.disabled = false; fe.textContent = er.message; fe.classList.remove("hidden"); }
+      };
+    });
+}
+
+function openIdeaForm(x) {
+  const edit = !!x, can = !edit || st.canEditIdea(x);
+  const d = x || { title: "", description: "", project_id: currentProject() || "" };
+  const projs = st.activeProjects();
+  if (d.project_id && !projs.find((p) => p.id === d.project_id)) { const pp = st.project(d.project_id); if (pp) projs.push(pp); }
+  const dis = can ? "" : "disabled";
+  const t = x?.task_id ? st.task(x.task_id) : null;
+  const info = edit ? `<div class="muted" style="font-size:13px;margin-bottom:12px">Notiert von ${esc(st.profile(x.created_by)?.name || "–")} · ${fmtTime(x.created_at)}
+    ${x.status === "adopted" ? `<br>Übernommen${x.adopted_by ? " von " + esc(st.profile(x.adopted_by)?.name || "") : ""}${x.adopted_at ? " · " + fmtTime(x.adopted_at) : ""}${t ? ` · <a href="#/aufgabe/${t.id}" data-close>zur Aufgabe</a>` : " · Aufgabe wurde gelöscht"}` : ""}</div>` : "";
+  modal(edit ? (can ? "Idee bearbeiten" : "Idee") : "Neue Idee", `
+    <div class="err hidden" id="fe"></div>${info}
+    <div class="field"><label>Idee *</label><input name="title" value="${esc(d.title)}" maxlength="200" required ${dis}></div>
+    <div class="field"><label>Notizen</label><textarea name="description" ${dis}>${esc(d.description || "")}</textarea></div>
+    <div class="field"><label>Passt zu Projekt (optional)</label><select name="project_id" ${dis}><option value="">–</option>
+      ${projs.map((p) => `<option value="${p.id}" ${p.id === d.project_id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div>`,
+    `${edit && can ? `<button type="button" class="btn danger" id="idel" style="margin-right:auto" title="Löschen">${i("trash")}</button>` : ""}
+     ${edit && x.status === "open" ? `<button type="button" class="btn" id="iad">${i("check")}Als Aufgabe</button>` : ""}
+     ${edit && x.status === "adopted" && can ? `<button type="button" class="btn" id="ire">${i("undo")}Wieder offen</button>` : ""}
+     ${can ? `<button class="btn red" id="sv">${edit ? "Speichern" : "Notieren"}</button>` : `<button type="button" class="btn" data-close>Schließen</button>`}`,
+    (f, close) => {
+      const read = () => ({ title: f.title.value.trim(), description: f.description.value.trim() || null, project_id: f.project_id.value || null });
+      f.onsubmit = async (e) => {
+        e.preventDefault();
+        if (!can) return close();
+        const fe = f.querySelector("#fe"), data = read();
+        if (!data.title) { fe.textContent = "Bitte die Idee kurz beschreiben."; return fe.classList.remove("hidden"); }
+        const b = f.querySelector("#sv"); b.disabled = true;
+        try {
+          if (edit) { await st.updateIdea(x.id, data); toast("Gespeichert"); }
+          else { await st.createIdea(data); ideaTab = "open"; toast("Idee notiert"); if (!location.hash.startsWith("#/ideen")) location.hash = "#/ideen"; }
+          close();
+        } catch (er) { b.disabled = false; fe.textContent = er.message; fe.classList.remove("hidden"); }
+      };
+      const ad = f.querySelector("#iad");
+      if (ad) ad.onclick = async () => {
+        // ungespeicherte Änderungen vorher sichern, damit sie in die Aufgabe übernommen werden
+        const data = read();
+        if (can && data.title && (data.title !== x.title || data.description !== (x.description || null) || data.project_id !== (x.project_id || null))) {
+          try { await st.updateIdea(x.id, data); } catch (_) { /* */ }
+        }
+        close(); adoptIdea({ ...x, ...(can && data.title ? data : {}) });
+      };
+      const re = f.querySelector("#ire");
+      if (re) re.onclick = async () => { try { await st.reopenIdea(x.id); close(); toast("Idee wieder offen"); } catch (er) { toast(er.message); } };
+      const dl = f.querySelector("#idel");
+      if (dl) dl.onclick = async () => {
+        if (!confirm("Idee endgültig löschen?")) return;
+        try { await st.deleteIdea(x.id); close(); toast("Idee gelöscht"); } catch (er) { toast(er.message); }
       };
     });
 }

@@ -286,3 +286,12 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .mlist a { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
 .mlist a:last-child { border-bottom: none; }
 .mlist a .badge { margin-left: auto; }
+
+/* Ideen */
+.iquick { display: flex; gap: 10px; align-items: center; padding: 10px 12px 10px 16px; margin-bottom: 8px; }
+.iquick input { flex: 1; min-width: 0; border: none; outline: none; background: none; padding: 6px 0; }
+.irow .ibulb { display: flex; color: var(--warn); margin-top: 1px; }
+.irow .ibulb.adopted { color: var(--ok); }
+.irow .idesc { font-size: 13px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.irow .iact { display: flex; align-items: center; }
+@media (max-width: 900px) { .irow { align-items: flex-start; } }

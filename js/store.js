@@ -4,8 +4,8 @@ import { debounce, daysUntil, todayStr } from "./util.js";
 
 export const S = {
   me: null, profile: null,
-  profiles: [], projects: [], tasks: [], assignees: [], checklist: [], comments: [], notifications: [],
-  loaded: false,
+  profiles: [], projects: [], tasks: [], assignees: [], checklist: [], comments: [], notifications: [], ideas: [],
+  ideasMissing: false, loaded: false,
 };
 const listeners = new Set();
 export const onChange = (fn) => listeners.add(fn);
@@ -17,7 +17,7 @@ function check({ data, error }) {
 }
 
 export async function loadAll() {
-  const [pr, pj, tk, as, ck, cm, nt] = await Promise.all([
+  const [pr, pj, tk, as, ck, cm, nt, id] = await Promise.all([
     sb.from("profiles").select("*").order("name"),
     sb.from("projects").select("*").order("created_at"),
     sb.from("tasks").select("*"),
@@ -25,10 +25,13 @@ export async function loadAll() {
     sb.from("checklist_items").select("*").order("position"),
     sb.from("comments").select("*").order("created_at"),
     sb.from("notifications").select("*").order("created_at", { ascending: false }).limit(100),
+    sb.from("ideas").select("*").order("created_at", { ascending: false }),
   ]);
   S.profiles = check(pr) || []; S.projects = check(pj) || []; S.tasks = check(tk) || [];
   S.assignees = check(as) || []; S.checklist = check(ck) || []; S.comments = check(cm) || [];
   S.notifications = check(nt) || [];
+  // Ideen: fehlt die Tabelle noch (SQL 03 nicht ausgeführt), läuft der Rest der App trotzdem
+  S.ideasMissing = !!id.error; S.ideas = id.error ? [] : id.data || [];
   S.profile = S.profiles.find((p) => p.id === S.me) || S.profile;
   S.loaded = true;
   emit();
@@ -57,6 +60,9 @@ export const isMine = (t) => assigneesOf(t.id).includes(S.me);
 export const canEdit = (t) => isAdmin() || t.created_by === S.me || isMine(t);
 export const activeProfiles = () => S.profiles.filter((p) => p.active);
 export const activeProjects = () => S.projects.filter((p) => !p.archived);
+export const idea = (id) => S.ideas.find((x) => x.id === id);
+export const canEditIdea = (x) => isAdmin() || x.created_by === S.me;
+export const openIdeas = () => S.ideas.filter((x) => x.status === "open");
 export const unreadCount = () => S.notifications.filter((n) => !n.read_at).length;
 
 export function tasksOfProject(pid) {
@@ -153,6 +159,17 @@ export async function createProject(d) {
 export async function updateProject(id, d) { check(await sb.from("projects").update(d).eq("id", id)); await loadAll(); }
 export async function archiveProject(id, on) { await updateProject(id, { archived: on, archived_at: on ? new Date().toISOString() : null }); }
 export async function deleteProject(id) { check(await sb.from("projects").delete().eq("id", id)); await loadAll(); }
+
+// ---------- Ideen ----------
+export async function createIdea(d) {
+  check(await sb.from("ideas").insert({ title: d.title, description: d.description || null, project_id: d.project_id || null, created_by: S.me }));
+  await loadAll();
+}
+export async function updateIdea(id, d) { check(await sb.from("ideas").update(d).eq("id", id)); await loadAll(); }
+export async function deleteIdea(id) { check(await sb.from("ideas").delete().eq("id", id)); await loadAll(); }
+/** Idee als übernommen markieren und mit der neuen Aufgabe verknüpfen */
+export async function adoptIdea(id, taskId) { await updateIdea(id, { status: "adopted", task_id: taskId }); }
+export async function reopenIdea(id) { await updateIdea(id, { status: "open" }); }
 
 export async function markRead(id) {
   const n = S.notifications.find((x) => x.id === id);
