@@ -85,6 +85,9 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
 .main { margin-left: var(--side-w); padding: calc(var(--top-h) + var(--safe-t) + 20px) 22px calc(30px + var(--safe-b)); max-width: 1500px; }
 /* iPad/iPhone als App: Bereich der Statusleiste dunkel hinterlegen statt Inhalt darunter durchscheinen zu lassen */
 .safe-top { position: fixed; top: 0; left: 0; right: 0; height: var(--safe-t); background: var(--side); z-index: 30; }
+/* Bereich der Wischleiste unten: feste, ruhige Fläche statt durchscrollendem (weichgezeichnetem) Inhalt */
+.safe-bottom { position: fixed; bottom: 0; left: var(--side-w); right: 0; height: var(--safe-b); background: var(--bg); z-index: 30; }
+@media (max-width: 900px) { .safe-bottom { display: none; } }
 .page-h { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .page-h h1 { font-size: 22px; font-weight: 600; }
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
