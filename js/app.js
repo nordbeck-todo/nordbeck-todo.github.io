@@ -16,6 +16,26 @@ let setPwMode = new URLSearchParams(location.search).has("setpw");
 // Start
 // =====================================================================
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+// iPad/iPhone als App: Manche iPadOS-Versionen legen die App unter die Statusleiste, melden aber keinen Abstand
+// (safe-area-inset-top = 0) und machen das Fenster um genau diese Höhe kürzer. Dann messen wir die Lücke selbst.
+function fixIOSInsets() {
+  if (!isIOS() || !isStandalone()) return;
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;top:0;left:0;visibility:hidden;padding-top:env(safe-area-inset-top)";
+  document.body.appendChild(probe);
+  const envTop = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+  probe.remove();
+  const root = document.documentElement;
+  if (envTop > 0) { root.style.removeProperty("--safe-t"); return; }
+  const land = matchMedia("(orientation: landscape)").matches;
+  const gap = Math.round((land ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height)) - window.innerHeight);
+  if (gap >= 12 && gap <= 70) root.style.setProperty("--safe-t", gap + "px");
+  else root.style.removeProperty("--safe-t");
+}
+fixIOSInsets();
+addEventListener("resize", fixIOSInsets);
+addEventListener("orientationchange", () => setTimeout(fixIOSInsets, 300));
+
 // Zoomen verhindern (iPhone: Zwei-Finger-Zoom; Doppeltipp verhindert touch-action im CSS)
 ["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
 

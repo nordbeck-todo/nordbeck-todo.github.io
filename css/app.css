@@ -87,6 +87,9 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
 .safe-top { position: fixed; top: 0; left: 0; right: 0; height: var(--safe-t); background: var(--side); z-index: 30; }
 /* Bereich der Wischleiste unten: feste, ruhige Fläche statt durchscrollendem (weichgezeichnetem) Inhalt */
 .safe-bottom { position: fixed; bottom: 0; left: var(--side-w); right: 0; height: var(--safe-b); background: var(--bg); z-index: 30; }
+/* Falls das Gerät unterhalb des App-Fensters noch einen Streifen zeigt: links dunkel (Seitenleiste), rechts Hintergrund */
+@media (min-width: 901px) { html { background: linear-gradient(to right, var(--side) var(--side-w), var(--bg) var(--side-w)); } }
+@media (max-width: 900px) { html { background: var(--side); } }
 @media (max-width: 900px) { .safe-bottom { display: none; } }
 .page-h { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .page-h h1 { font-size: 22px; font-weight: 600; }
