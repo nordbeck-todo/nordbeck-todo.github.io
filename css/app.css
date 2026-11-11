@@ -93,8 +93,14 @@ html.ios-app { --safe-t: calc(env(safe-area-inset-top, 0px) + 16px); }
 html.ipad { --safe-t: calc(max(env(safe-area-inset-top, 0px), 32px) + 16px); }
 /* iPad als App (WebKit-Fehler 236445): Mit durchscheinender Statusleiste endet „unten“ um die Höhe der Statusleiste
    zu früh. Seitenleiste und Bodenstreifen deshalb um genau diese Höhe nach unten verlängern. */
-html.ipad.ios-app .side { bottom: calc(-1 * env(safe-area-inset-top, 0px)); padding-bottom: calc(10px + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px)); }
-html.ipad.ios-app .safe-bottom { bottom: calc(-1 * env(safe-area-inset-top, 0px)); height: calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px)); }
+/* Seitenleiste und Hintergrund über die volle Bildschirmhöhe (100lvh), nicht nur über das (zu kurze) Fenster */
+@media (min-width: 901px) {
+  .side { bottom: auto; height: max(100vh, 100lvh); }
+  html, body { min-height: max(100vh, 100lvh); }
+  body::before { content: ""; position: fixed; top: 0; left: 0; width: var(--side-w); height: max(100vh, 100lvh); background: var(--side); z-index: 0; pointer-events: none; }
+}
+/* Kein Gummiband-Effekt beim Überziehen */
+html, body { overscroll-behavior: none; }
 /* Bereich der Wischleiste unten: feste, ruhige Fläche statt durchscrollendem (weichgezeichnetem) Inhalt */
 .safe-bottom { position: fixed; bottom: 0; left: var(--side-w); right: 0; height: var(--safe-b); background: var(--bg); z-index: 30; }
 /* Falls das Gerät unterhalb des App-Fensters noch einen Streifen zeigt: links dunkel (Seitenleiste), rechts Hintergrund */
