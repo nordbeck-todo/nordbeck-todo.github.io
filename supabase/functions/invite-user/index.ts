@@ -5,6 +5,7 @@
 //   { action: "password", user_id, password }   → Passwort zurücksetzen
 //   { action: "deactivate", user_id }           → Zugang sperren
 //   { action: "activate",   user_id }           → Zugang wieder freigeben
+//   { action: "delete",     user_id }           → Nutzer endgültig entfernen
 // =====================================================================
 const URL_ = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -66,6 +67,15 @@ Deno.serve(async (req) => {
       await fetch(`${URL_}/rest/v1/profiles?id=eq.${id}`, {
         method: "PATCH", headers: ADMIN, body: JSON.stringify({ active: on }),
       });
+      return json({ ok: true });
+    }
+
+    if (b.action === "delete") {
+      const id = String(b.user_id || "");
+      if (!id || id === user.id) return json({ error: "Du kannst dich nicht selbst löschen." }, 400);
+      const r = await fetch(`${URL_}/auth/v1/admin/users/${id}`, { method: "DELETE", headers: ADMIN });
+      if (!r.ok) return json({ error: "Nutzer konnte nicht gelöscht werden." }, 400);
+      // Profil, Zuweisungen, Benachrichtigungen und Push-Geräte werden über die Datenbank automatisch mit entfernt.
       return json({ ok: true });
     }
 

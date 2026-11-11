@@ -582,10 +582,17 @@ function vUsers() {
         ${p.id === S.me ? "" : `<div class="uacts">
           <button class="btn sm" data-pw="${p.id}">Passwort</button>
           <button class="btn sm" data-adm="${p.id}">${p.is_admin ? "Admin entziehen" : "Zum Admin machen"}</button>
-          <button class="btn sm ${p.active ? "danger" : ""}" data-act="${p.id}">${p.active ? "Sperren" : "Entsperren"}</button></div>`}</div>`).join("")}</div>
-      <p class="muted" style="font-size:13px;margin-top:10px">Neue Nutzer bekommen ein Startpasswort. Nach dem Anlegen kannst du die Zugangsdaten per „Teilen“ verschicken.</p>`,
+          <button class="btn sm ${p.active ? "danger" : ""}" data-act="${p.id}">${p.active ? "Sperren" : "Entsperren"}</button>
+          <button class="btn sm danger" data-del="${p.id}" title="Nutzer endgültig löschen">${i("trash")}Löschen</button></div>`}</div>`).join("")}</div>
+      <p class="muted" style="font-size:13px;margin-top:10px">Neue Nutzer bekommen ein Startpasswort. Nach dem Anlegen kannst du die Zugangsdaten per „Teilen“ verschicken. Später erneut teilen: „Passwort“ → neues Passwort speichern → „Teilen“.</p>`,
     after(r) {
       r.querySelector("#inv").onclick = openInviteForm;
+      r.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+        const p = st.profile(b.dataset.del);
+        const n = S.tasks.filter((t) => st.assigneesOf(t.id).includes(p.id) && t.status !== "done").length;
+        if (!confirm(`${p.name} endgültig löschen?\n\nDer Zugang wird entfernt.${n ? ` ${p.name} wird außerdem aus ${n} offenen Aufgaben ausgetragen.` : ""} Von ${p.name} angelegte Aufgaben und Projekte bleiben erhalten.\n\nDas lässt sich nicht rückgängig machen.`)) return;
+        try { await st.adminAction({ action: "delete", user_id: p.id }); toast(`${p.name} gelöscht`); } catch (e) { toast(e.message); }
+      });
       r.querySelectorAll("[data-pw]").forEach((b) => b.onclick = () => openPasswordForm(st.profile(b.dataset.pw)));
       r.querySelectorAll("[data-adm]").forEach((b) => b.onclick = async () => {
         const p = st.profile(b.dataset.adm);
