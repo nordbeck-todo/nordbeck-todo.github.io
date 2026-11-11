@@ -16,6 +16,13 @@ let setPwMode = new URLSearchParams(location.search).has("setpw");
 // Start
 // =====================================================================
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+// Kennzeichen auch hier setzen (falls das iPad noch eine ältere index.html aus dem Zwischenspeicher zeigt)
+try {
+  const d = document.documentElement, n = navigator;
+  if (n.standalone === true || matchMedia("(display-mode: standalone)").matches) d.classList.add("ios-app");
+  if (/iPad/.test(n.userAgent) || (/Macintosh/.test(n.userAgent) && n.maxTouchPoints > 1)) d.classList.add("ipad");
+} catch (_) { /* */ }
+
 // Zoomen verhindern (iPhone: Zwei-Finger-Zoom; Doppeltipp verhindert touch-action im CSS)
 ["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
 

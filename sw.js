@@ -1,5 +1,5 @@
 // Nordbeck To-Do – Service Worker: App-Dateien zwischenspeichern, Push anzeigen
-const CACHE = "nordbeck-todo-v1.0.13";
+const CACHE = "nordbeck-todo-v1.0.14";
 const SHELL = ["./", "index.html", "css/app.css", "js/app.js", "js/store.js", "js/util.js", "js/config.js", "js/supabase.js",
   "img/logo.png", "icons/icon-192.png", "icons/badge-96.png", "manifest.webmanifest"];
 
@@ -14,7 +14,7 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const u = new URL(e.request.url);
   if (e.request.method !== "GET" || u.origin !== location.origin) return;
-  const req = e.request.mode === "navigate" ? e.request : new Request(e.request.url, { cache: "no-cache" });
+  const req = new Request(e.request.mode === "navigate" ? u.origin + u.pathname : e.request.url, { cache: "no-cache" });
   e.respondWith(
     fetch(req).then((r) => {
       if (r.ok) { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); }
