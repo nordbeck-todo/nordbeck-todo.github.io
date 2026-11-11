@@ -616,13 +616,16 @@ function vSearch(q) {
 function ideaRow(x) {
   const p = x.project_id ? st.project(x.project_id) : null;
   const t = x.task_id ? st.task(x.task_id) : null;
+  const rp = x.result_project_id ? st.project(x.result_project_id) : null;
   let meta = "";
   if (p) meta += `<span class="chip">${esc(p.name)}</span>`;
   if (x.status === "adopted") meta += `<span class="chip" style="background:#e3f4ea;color:#1a7a45">übernommen${x.adopted_at ? " " + fmtDate(x.adopted_at.slice(0, 10)) : ""}</span>`;
   meta += `<span class="m">${esc(st.profile(x.created_by)?.name || "")} · ${fmtTime(x.created_at)}</span>`;
   const act = x.status === "open"
-    ? `<button class="btn sm" data-adopt="${x.id}" title="Als Aufgabe übernehmen">${i("check", "width:15px;height:15px")}Als Aufgabe</button>`
-    : t ? `<a class="btn sm" href="#/aufgabe/${t.id}" data-stop>Zur Aufgabe</a>` : `<span class="muted" style="font-size:12px">Aufgabe gelöscht</span>`;
+    ? `<button class="btn sm" data-adopt="${x.id}" title="Als Aufgabe oder Projekt übernehmen">${i("check", "width:15px;height:15px")}Übernehmen</button>`
+    : t ? `<a class="btn sm" href="#/aufgabe/${t.id}" data-stop>Zur Aufgabe</a>`
+    : rp ? `<a class="btn sm" href="#/projekt/${rp.id}" data-stop>Zum Projekt</a>`
+    : `<span class="muted" style="font-size:12px">gelöscht</span>`;
   return `<div class="trow irow" data-idea="${x.id}"><span class="ibulb ${x.status}">${i("bulb")}</span>
     <div class="tt"><div class="ti">${esc(x.title)}</div>${x.description ? `<div class="idesc">${esc(x.description)}</div>` : ""}<div class="meta">${meta}</div></div>
     <div class="side-r"><div class="iact">${act}</div></div></div>`;
@@ -632,8 +635,21 @@ function bindIdeas(root) {
   root.querySelectorAll("[data-stop]").forEach((a) => a.onclick = (e) => e.stopPropagation());
   root.querySelectorAll("[data-idea]").forEach((r) => r.onclick = () => openIdeaForm(st.idea(r.dataset.idea)));
 }
+/** Idee übernehmen: erst fragen, ob daraus eine Aufgabe oder ein Projekt werden soll */
 function adoptIdea(x) {
   if (!x) return;
+  modal("Idee übernehmen als …", `
+    <div class="newmenu inline">
+      <button type="button" data-as="task">${i("check")}<span><b>Aufgabe</b><small>mit Frist und Zuständigen${x.project_id ? " – im Projekt " + esc(st.project(x.project_id)?.name || "") : ""}</small></span></button>
+      <button type="button" data-as="project">${i("folder")}<span><b>Projekt</b><small>wird eigenes Projekt, Aufgaben kommen danach dazu</small></span></button>
+    </div>`,
+    `<button type="button" class="btn" data-close>Abbrechen</button>`,
+    (f, close) => {
+      f.querySelector('[data-as="task"]').onclick = () => { close(); adoptIdeaAsTask(x); };
+      f.querySelector('[data-as="project"]').onclick = () => { close(); openProjectForm(null, { name: x.title, description: x.description || "", idea_id: x.id }); };
+    });
+}
+function adoptIdeaAsTask(x) {
   openTaskForm(null, { title: x.title, description: x.description || "", project_id: x.project_id || currentProject(), idea_id: x.id });
 }
 
@@ -649,7 +665,7 @@ function vIdeas() {
         ${seg([["open", `Offen · ${open.length}`], ["adopted", `Übernommen · ${done.length}`]], ideaTab, "it")}
         <button class="btn red" id="ni">${i("plus")}Idee</button></div></div>
       <form class="card iquick" id="iq">${i("bulb", "color:var(--warn)")}<input id="iqin" placeholder="Idee schnell notieren …" autocomplete="off" maxlength="200"><button class="btn red sm">Notieren</button></form>
-      <p class="muted" style="font-size:13px;margin:0 2px 12px">Hier landet alles, was man nicht vergessen will, aber noch keine Aufgabe ist. Mit „Als Aufgabe“ wird daraus eine Aufgabe – Titel und Beschreibung werden übernommen.</p>
+      <p class="muted" style="font-size:13px;margin:0 2px 12px">Hier landet alles, was man nicht vergessen will, aber noch keine Aufgabe ist. Mit „Übernehmen“ wird daraus eine Aufgabe oder ein Projekt – Titel und Beschreibung werden übernommen.</p>
       <div class="card list-cards">${list.map(ideaRow).join("") || `<div class="empty">${ideaTab === "open" ? "Noch keine Ideen notiert." : "Noch keine Idee übernommen."}</div>`}</div>`,
     after(r) {
       bindIdeas(r);
@@ -822,8 +838,10 @@ function openIdeaForm(x) {
   if (d.project_id && !projs.find((p) => p.id === d.project_id)) { const pp = st.project(d.project_id); if (pp) projs.push(pp); }
   const dis = can ? "" : "disabled";
   const t = x?.task_id ? st.task(x.task_id) : null;
+  const rp = x?.result_project_id ? st.project(x.result_project_id) : null;
+  const res = t ? ` · <a href="#/aufgabe/${t.id}" data-close>zur Aufgabe</a>` : rp ? ` · <a href="#/projekt/${rp.id}" data-close>zum Projekt</a>` : " · Aufgabe bzw. Projekt wurde gelöscht";
   const info = edit ? `<div class="muted" style="font-size:13px;margin-bottom:12px">Notiert von ${esc(st.profile(x.created_by)?.name || "–")} · ${fmtTime(x.created_at)}
-    ${x.status === "adopted" ? `<br>Übernommen${x.adopted_by ? " von " + esc(st.profile(x.adopted_by)?.name || "") : ""}${x.adopted_at ? " · " + fmtTime(x.adopted_at) : ""}${t ? ` · <a href="#/aufgabe/${t.id}" data-close>zur Aufgabe</a>` : " · Aufgabe wurde gelöscht"}` : ""}</div>` : "";
+    ${x.status === "adopted" ? `<br>Übernommen${x.adopted_by ? " von " + esc(st.profile(x.adopted_by)?.name || "") : ""}${x.adopted_at ? " · " + fmtTime(x.adopted_at) : ""}${res}` : ""}</div>` : "";
   modal(edit ? (can ? "Idee bearbeiten" : "Idee") : "Neue Idee", `
     <div class="err hidden" id="fe"></div>${info}
     <div class="field"><label>Idee *</label><input name="title" value="${esc(d.title)}" maxlength="200" required ${dis}></div>
@@ -831,7 +849,7 @@ function openIdeaForm(x) {
     <div class="field"><label>Passt zu Projekt (optional)</label><select name="project_id" ${dis}><option value="">–</option>
       ${projs.map((p) => `<option value="${p.id}" ${p.id === d.project_id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div>`,
     `${edit && can ? `<button type="button" class="btn danger" id="idel" style="margin-right:auto" title="Löschen">${i("trash")}</button>` : ""}
-     ${edit && x.status === "open" ? `<button type="button" class="btn" id="iad">${i("check")}Als Aufgabe</button>` : ""}
+     ${edit && x.status === "open" ? `<button type="button" class="btn" id="iad">${i("check")}Übernehmen</button>` : ""}
      ${edit && x.status === "adopted" && can ? `<button type="button" class="btn" id="ire">${i("undo")}Wieder offen</button>` : ""}
      ${can ? `<button class="btn red" id="sv">${edit ? "Speichern" : "Notieren"}</button>` : `<button type="button" class="btn" data-close>Schließen</button>`}`,
     (f, close) => {
@@ -850,7 +868,7 @@ function openIdeaForm(x) {
       };
       const ad = f.querySelector("#iad");
       if (ad) ad.onclick = async () => {
-        // ungespeicherte Änderungen vorher sichern, damit sie in die Aufgabe übernommen werden
+        // ungespeicherte Änderungen vorher sichern, damit sie in die Aufgabe bzw. das Projekt übernommen werden
         const data = read();
         if (can && data.title && (data.title !== x.title || data.description !== (x.description || null) || data.project_id !== (x.project_id || null))) {
           try { await st.updateIdea(x.id, data); } catch (_) { /* */ }
@@ -867,10 +885,10 @@ function openIdeaForm(x) {
     });
 }
 
-function openProjectForm(p) {
+function openProjectForm(p, preset = {}) {
   const edit = !!p;
-  const d = p || { name: "", description: "", owner_id: S.me, due_date: "" };
-  modal(edit ? "Projekt bearbeiten" : "Neues Projekt", `
+  const d = p || { name: preset.name || "", description: preset.description || "", owner_id: S.me, due_date: "" };
+  modal(edit ? "Projekt bearbeiten" : preset.idea_id ? "Idee als Projekt übernehmen" : "Neues Projekt", `
     <div class="err hidden" id="fe"></div>
     <div class="field"><label>Name *</label><input name="name" value="${esc(d.name)}" maxlength="120" required></div>
     <div class="field"><label>Beschreibung</label><textarea name="description">${esc(d.description || "")}</textarea></div>
@@ -889,7 +907,12 @@ function openProjectForm(p) {
         if (!data.name) { fe.textContent = "Bitte einen Namen eingeben."; return fe.classList.remove("hidden"); }
         try {
           if (edit) { await st.updateProject(p.id, data); toast("Gespeichert"); close(); }
-          else { const np = await st.createProject(data); toast("Projekt angelegt"); close(); location.hash = "#/projekt/" + np.id; }
+          else {
+            const np = await st.createProject(data);
+            let msg = preset.idea_id ? "Idee als Projekt übernommen" : "Projekt angelegt";
+            if (preset.idea_id) { try { await st.adoptIdeaAsProject(preset.idea_id, np.id); } catch (_) { msg = "Projekt angelegt – Idee konnte nicht als übernommen markiert werden"; } }
+            toast(msg); close(); location.hash = "#/projekt/" + np.id;
+          }
         } catch (er) { fe.textContent = er.message; fe.classList.remove("hidden"); }
       };
       const pd = f.querySelector("#pd");

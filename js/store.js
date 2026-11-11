@@ -169,6 +169,8 @@ export async function updateIdea(id, d) { check(await sb.from("ideas").update(d)
 export async function deleteIdea(id) { check(await sb.from("ideas").delete().eq("id", id)); await loadAll(); }
 /** Idee als übernommen markieren und mit der neuen Aufgabe verknüpfen */
 export async function adoptIdea(id, taskId) { await updateIdea(id, { status: "adopted", task_id: taskId }); }
+/** Idee als übernommen markieren und mit dem neuen Projekt verknüpfen (braucht 04_ideen_projekt.sql) */
+export async function adoptIdeaAsProject(id, projectId) { await updateIdea(id, { status: "adopted", result_project_id: projectId }); }
 export async function reopenIdea(id) { await updateIdea(id, { status: "open" }); }
 
 export async function markRead(id) {
