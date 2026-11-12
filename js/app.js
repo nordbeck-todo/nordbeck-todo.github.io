@@ -633,6 +633,9 @@ const calF = {
   anchor: null, who: "", proj: "", done: false,
 };
 let calScroll = null;
+// Fenstergröße geändert (PC): Kalender neu an die Breite anpassen
+let calRz;
+window.addEventListener("resize", () => { clearTimeout(calRz); calRz = setTimeout(() => { if (shellReady && location.hash.startsWith("#/kalender")) route(); }, 200); });
 /** Sichtbarer Zeitraum je Ansicht: 2 Wochen ab Montag, Kalendermonat oder 3 Monate */
 function calRange() {
   const a = calF.anchor ? dD(calF.anchor) : dD(todayStr());
@@ -661,8 +664,12 @@ function taskSpan(t) {
 function vCalendar() {
   const R = calRange();
   const mob = innerWidth <= 900;
-  const dw = { "2w": mob ? 44 : 64, month: mob ? 30 : 38, quarter: mob ? 11 : 14 }[calF.mode];
-  const lw = mob ? 128 : 270;
+  const lw = mob ? 128 : 300;
+  // PC: Zeitachse füllt die ganze Breite (mindestens die Grundbreite je Tag); Handy: feste Breite, seitlich scrollen
+  const minDw = { "2w": mob ? 44 : 64, month: mob ? 30 : 40, quarter: mob ? 11 : 16 }[calF.mode];
+  const mainEl = document.getElementById("main");
+  const avail = mainEl ? (mob ? mainEl.clientWidth : document.documentElement.clientWidth - mainEl.getBoundingClientRect().left) - 46 : innerWidth;
+  const dw = mob ? minDw : Math.max(minDw, Math.floor((avail - lw) / R.days));
   const W = R.days * dw;
   const today = todayStr(), tIdx = dDiff(R.start, today);
   // Aufgaben filtern
@@ -698,11 +705,11 @@ function vCalendar() {
     const d = addD(dD(R.start), k), wd = d.getDay();
     if (k === 0 || d.getDate() === 1) {
       const rest = Math.min(R.days - k, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() - d.getDate() + 1);
-      months += `<div class="gm" style="left:${k * dw}px;width:${rest * dw}px">${rest * dw > 70 ? MONL[d.getMonth()] + " " + d.getFullYear() : MON[d.getMonth()]}</div>`;
+      months += `<div class="gm" style="left:${k * dw}px;width:${rest * dw}px"><span>${rest * dw > 70 ? MONL[d.getMonth()] + " " + d.getFullYear() : MON[d.getMonth()]}</span></div>`;
     }
     if (calF.mode === "quarter") {
       if (wd === 1 || k === 0) { const len = Math.min(R.days - k, wd === 1 ? 7 : (8 - wd) % 7 || 7); days += `<div class="gd wk" style="left:${k * dw}px;width:${len * dw}px">${len * dw >= 34 ? "KW " : ""}${isoWeek(d)}</div>`; }
-    } else days += `<div class="gd${wd === 0 || wd === 6 ? " we" : ""}${k === tIdx ? " td" : ""}" style="left:${k * dw}px;width:${dw}px"><small>${WD[wd]}</small>${d.getDate()}</div>`;
+    } else days += `<div class="gd${wd === 0 || wd === 6 ? " we" : ""}${k === tIdx ? " td" : ""}" style="left:${k * dw}px;width:${dw}px"><span class="gdi"><small>${WD[wd]}</small>${d.getDate()}</span></div>`;
     if (wd === 0 || wd === 6) bg += `<div class="gwe" style="left:${k * dw}px;width:${dw}px"></div>`;
     if (calF.mode !== "quarter" || wd === 1) bg += `<div class="gvl${wd === 1 ? " mo" : ""}" style="left:${k * dw}px"></div>`;
   }

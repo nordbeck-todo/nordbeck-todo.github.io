@@ -341,18 +341,20 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .glbl .gt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
 .glbl .avs { flex: none; }
 .gtrack { position: relative; flex: 1; }
-.ghead { height: 46px; background: #fafafb; }
+.ghead { height: 56px; background: #fafafb; }
 .ghead .glbl { background: #fafafb; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .03em; cursor: default; }
 .gms, .gds { position: absolute; left: 0; right: 0; }
 .gms { top: 0; height: 20px; } .gds { top: 20px; bottom: 0; }
-.gm { position: absolute; top: 0; height: 20px; line-height: 20px; padding-left: 6px; font-size: 11px; font-weight: 600; color: var(--muted);
-  border-left: 1px solid var(--border); white-space: nowrap; overflow: hidden; }
+.gm { position: absolute; top: 0; height: 20px; line-height: 20px; font-size: 11px; font-weight: 600; color: var(--muted);
+  border-left: 1px solid var(--border); white-space: nowrap; }
+/* Monatsname bleibt beim seitlichen Scrollen sichtbar */
+.gm span { position: sticky; left: calc(var(--lw) + 6px); padding-left: 6px; }
 .gd { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; line-height: 1.1; }
 .gd small { font-size: 9px; color: var(--muted); font-weight: 400; }
 .gd.we { color: var(--muted); }
-.gd.td { color: #fff; } .gd.td::before { content: ""; position: absolute; inset: 2px 3px; background: var(--accent); border-radius: 5px; z-index: -1; }
+.gdi { display: flex; flex-direction: column; align-items: center; padding: 2px 5px; border-radius: 5px; line-height: 1.15; }
+.gd.td .gdi { background: var(--accent); color: #fff; }
 .gd.td small { color: #fff; }
-.gds { z-index: 0; isolation: isolate; }
 .gd.wk { border-left: 1px solid var(--border); align-items: flex-start; padding-left: 4px; font-size: 11px; color: var(--muted); }
 .gbody { position: relative; }
 .gbg { position: absolute; top: 0; bottom: 0; pointer-events: none; z-index: 0; }
@@ -389,3 +391,21 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
   .gbar { top: 10px; }
   .calh .seg { width: 100%; } .calh .seg .btn { flex: 1; }
 }
+
+/* PC: Kalender größer */
+@media (min-width: 901px) {
+  .gantt .grow { height: 46px; }
+  .gantt .ghead { height: 60px; }
+  .gantt .gms { height: 22px; } .gantt .gds { top: 22px; }
+  .gantt .gm { height: 22px; line-height: 22px; font-size: 12px; }
+  .gantt .gd { font-size: 14px; } .gantt .gd small { font-size: 10px; }
+  .gantt .glbl { padding: 0 14px; gap: 10px; } .gantt .glbl .gt { font-size: 14px; }
+  .gantt .gproj .glbl .gt { font-size: 14px; }
+  .gantt .gbar { top: 10px; height: 26px; font-size: 12px; border-radius: 6px; }
+  .gantt .gbar.one { border-radius: 13px; }
+  .gantt .gpbar { top: 16px; height: 14px; border-radius: 7px; }
+  .gantt .gd.wk { font-size: 12px; }
+  .glegend { font-size: 13px; }
+}
+/* Kalender am PC über die volle Fensterbreite */
+@media (min-width: 901px) { .main:has(.gantt) { max-width: none; } }
