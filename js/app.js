@@ -635,7 +635,7 @@ const calF = {
 let calScroll = null;
 // Fenstergröße geändert (PC): Kalender neu an die Breite anpassen
 let calRz;
-window.addEventListener("resize", () => { clearTimeout(calRz); calRz = setTimeout(() => { if (shellReady && location.hash.startsWith("#/kalender")) route(); }, 200); });
+window.addEventListener("resize", () => { clearTimeout(calRz); calRz = setTimeout(() => { if (shellReady && innerWidth > 900 && location.hash.startsWith("#/kalender")) route(); }, 200); });
 /** Sichtbarer Zeitraum je Ansicht: 2 Wochen ab Montag, Kalendermonat oder 3 Monate */
 function calRange() {
   const a = calF.anchor ? dD(calF.anchor) : dD(todayStr());
