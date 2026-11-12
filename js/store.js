@@ -6,6 +6,7 @@ export const S = {
   me: null, profile: null,
   profiles: [], projects: [], tasks: [], assignees: [], checklist: [], comments: [], notifications: [], ideas: [],
   ideasMissing: false, loaded: false,
+  hasStart: true, hasRating: true, // neue Spalten aus 05_bewertung_kalender.sql vorhanden?
 };
 const listeners = new Set();
 export const onChange = (fn) => listeners.add(fn);
@@ -17,7 +18,7 @@ function check({ data, error }) {
 }
 
 export async function loadAll() {
-  const [pr, pj, tk, as, ck, cm, nt, id] = await Promise.all([
+  const [pr, pj, tk, as, ck, cm, nt, id, ps, pi] = await Promise.all([
     sb.from("profiles").select("*").order("name"),
     sb.from("projects").select("*").order("created_at"),
     sb.from("tasks").select("*"),
@@ -26,12 +27,16 @@ export async function loadAll() {
     sb.from("comments").select("*").order("created_at"),
     sb.from("notifications").select("*").order("created_at", { ascending: false }).limit(100),
     sb.from("ideas").select("*").order("created_at", { ascending: false }),
+    // Prüfen, ob 05_bewertung_kalender.sql schon eingespielt ist (sonst laufen Speichern und Anzeige ohne die neuen Felder)
+    sb.from("tasks").select("start_date").limit(1),
+    sb.from("ideas").select("feasibility").limit(1),
   ]);
   S.profiles = check(pr) || []; S.projects = check(pj) || []; S.tasks = check(tk) || [];
   S.assignees = check(as) || []; S.checklist = check(ck) || []; S.comments = check(cm) || [];
   S.notifications = check(nt) || [];
   // Ideen: fehlt die Tabelle noch (SQL 03 nicht ausgeführt), läuft der Rest der App trotzdem
   S.ideasMissing = !!id.error; S.ideas = id.error ? [] : id.data || [];
+  S.hasStart = !ps.error; S.hasRating = !id.error && !pi.error;
   S.profile = S.profiles.find((p) => p.id === S.me) || S.profile;
   S.loaded = true;
   emit();
@@ -84,6 +89,26 @@ export function sortTasks(list) {
     return a.created_at < b.created_at ? -1 : 1;
   });
 }
+// ---------- Ideen bewerten ----------
+export const RATE_KEYS = [["feasibility", "Machbarkeit", "M"], ["relevance", "Relevanz", "R"], ["priority", "Priorität", "P"]];
+export const RATE_LBL = { 1: "niedrig", 2: "mittel", 3: "hoch" };
+/** Gesamtwert einer Idee: Summe der Bewertungen (max. 9), unbewertete Kriterien zählen 0 */
+export const ideaScore = (x) => (x.feasibility || 0) + (x.relevance || 0) + (x.priority || 0);
+export const ideaRated = (x) => !!(x.feasibility || x.relevance || x.priority);
+/** Sortierung: "score" Gesamtwert, "priority" / "relevance" / "feasibility" einzeln, "new" neueste zuerst.
+ *  Bei Gleichstand entscheidet der Gesamtwert, dann das Datum. Unbewertete stehen immer unten. */
+export function sortIdeas(list, by = "score") {
+  const newer = (a, b) => (b.created_at || "").localeCompare(a.created_at || "");
+  if (by === "new") return [...list].sort(newer);
+  return [...list].sort((a, b) => {
+    const ra = ideaRated(a), rb = ideaRated(b);
+    if (ra !== rb) return ra ? -1 : 1;
+    if (by !== "score") { const d = (b[by] || 0) - (a[by] || 0); if (d) return d; }
+    const d2 = ideaScore(b) - ideaScore(a); if (d2) return d2;
+    return newer(a, b);
+  });
+}
+
 export function groupByDue(list) {
   const g = { over: [], today: [], week: [], later: [], none: [] };
   for (const t of sortTasks(list)) {
@@ -100,21 +125,23 @@ export function groupByDue(list) {
 }
 
 // ---------- Änderungen ----------
-export async function createTask(data, assignees, checklist) {
-  const t = check(await sb.from("tasks").insert({
+function taskFields(data) {
+  const r = {
     title: data.title, description: data.description || null, project_id: data.project_id || null,
     due_date: data.due_date || null, priority: data.priority || 2, needs_approval: !!data.needs_approval,
-  }).select().single());
+  };
+  if (S.hasStart) r.start_date = data.start_date || null;
+  return r;
+}
+export async function createTask(data, assignees, checklist) {
+  const t = check(await sb.from("tasks").insert(taskFields(data)).select().single());
   if (assignees.length) check(await sb.from("task_assignees").insert(assignees.map((u) => ({ task_id: t.id, user_id: u }))));
   if (checklist.length) check(await sb.from("checklist_items").insert(checklist.map((text, k) => ({ task_id: t.id, text, position: k }))));
   await loadAll();
   return t;
 }
 export async function updateTask(id, data, assignees) {
-  check(await sb.from("tasks").update({
-    title: data.title, description: data.description || null, project_id: data.project_id || null,
-    due_date: data.due_date || null, priority: data.priority || 2, needs_approval: !!data.needs_approval,
-  }).eq("id", id));
+  check(await sb.from("tasks").update(taskFields(data)).eq("id", id));
   if (assignees) {
     const cur = assigneesOf(id);
     const add = assignees.filter((u) => !cur.includes(u)), del = cur.filter((u) => !assignees.includes(u));
@@ -153,19 +180,29 @@ export async function taskEvents(tid) {
 }
 
 export async function createProject(d) {
-  const p = check(await sb.from("projects").insert({ name: d.name, description: d.description || null, owner_id: d.owner_id || null, due_date: d.due_date || null }).select().single());
+  const row = { name: d.name, description: d.description || null, owner_id: d.owner_id || null, due_date: d.due_date || null };
+  if (S.hasStart) row.start_date = d.start_date || null;
+  const p = check(await sb.from("projects").insert(row).select().single());
   await loadAll(); return p;
 }
-export async function updateProject(id, d) { check(await sb.from("projects").update(d).eq("id", id)); await loadAll(); }
+export async function updateProject(id, d) {
+  if (!S.hasStart) { d = { ...d }; delete d.start_date; }
+  check(await sb.from("projects").update(d).eq("id", id)); await loadAll(); }
 export async function archiveProject(id, on) { await updateProject(id, { archived: on, archived_at: on ? new Date().toISOString() : null }); }
 export async function deleteProject(id) { check(await sb.from("projects").delete().eq("id", id)); await loadAll(); }
 
 // ---------- Ideen ----------
+function ideaFields(d) {
+  const r = { ...d };
+  if (!S.hasRating) RATE_KEYS.forEach(([k]) => delete r[k]);
+  return r;
+}
 export async function createIdea(d) {
-  check(await sb.from("ideas").insert({ title: d.title, description: d.description || null, project_id: d.project_id || null, created_by: S.me }));
+  check(await sb.from("ideas").insert({ ...ideaFields({ title: d.title, description: d.description || null, project_id: d.project_id || null,
+    feasibility: d.feasibility || null, relevance: d.relevance || null, priority: d.priority || null }), created_by: S.me }));
   await loadAll();
 }
-export async function updateIdea(id, d) { check(await sb.from("ideas").update(d).eq("id", id)); await loadAll(); }
+export async function updateIdea(id, d) { d = ideaFields(d); check(await sb.from("ideas").update(d).eq("id", id)); await loadAll(); }
 export async function deleteIdea(id) { check(await sb.from("ideas").delete().eq("id", id)); await loadAll(); }
 /** Idee als übernommen markieren und mit der neuen Aufgabe verknüpfen */
 export async function adoptIdea(id, taskId) { await updateIdea(id, { status: "adopted", task_id: taskId }); }

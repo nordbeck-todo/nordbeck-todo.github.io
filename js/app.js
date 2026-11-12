@@ -2,7 +2,7 @@
 import { sb } from "./supabase.js";
 import { VAPID_PUBLIC_KEY, APP_VERSION } from "./config.js";
 import {
-  i, esc, fmtDate, fmtDue, fmtTime, initials, greeting, longDate, toast, b64uToUint8, isIOS, isStandalone, COLORS, daysUntil,
+  i, esc, fmtDate, fmtDue, fmtTime, initials, greeting, longDate, toast, b64uToUint8, isIOS, isStandalone, COLORS, daysUntil, todayStr,
 } from "./util.js";
 import * as st from "./store.js";
 const { S } = st;
@@ -121,7 +121,7 @@ function renderSetPassword() {
 // =====================================================================
 const NAV = [
   ["#/", "home", "Übersicht"], ["#/aufgaben", "check", "Meine Aufgaben", () => st.myOpen().length],
-  ["#/alle", "list", "Alle Aufgaben"], ["#/projekte", "folder", "Projekte"], ["#/ideen", "bulb", "Ideen"],
+  ["#/alle", "list", "Alle Aufgaben"], ["#/kalender", "cal", "Kalender"], ["#/projekte", "folder", "Projekte"], ["#/ideen", "bulb", "Ideen"],
   ["#/pruefung", "eye", "Zur Prüfung", () => st.waitingForMe().length], ["#/archiv", "archive", "Archiv"],
 ];
 function shell() {
@@ -214,7 +214,7 @@ function updateChrome(path, v) {
       <a href="#/" class="mlogo"><img src="img/logo.png" alt="Tischlermeister Nordbeck"></a><span class="mside r">${bell}</span></div>
     <div class="mtitle">${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ""}<div class="ptitle">${esc(v.title)}</div></div>`;
   const mn = [["#/", "home", "Übersicht", ""], ["#/aufgaben", "check", "Aufgaben", "aufgaben"], ["#/projekte", "folder", "Projekte", "projekt"], ["#/ideen", "bulb", "Ideen", "ideen"], ["#/mehr", "more", "Mehr", "mehr"]];
-  const moreKeys = ["alle", "pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
+  const moreKeys = ["alle", "kalender", "pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
   const w = st.waitingForMe().length;
   document.getElementById("mnav").innerHTML = mn.map(([h, ic, t, key]) => {
     const act = key === "" ? path === "" : key === "mehr" ? moreKeys.some((k) => path.startsWith(k)) : path.startsWith(key) || (key === "aufgaben" && path.startsWith("aufgabe/"));
@@ -233,7 +233,7 @@ function updateChrome(path, v) {
 const ROUTES = [
   [/^$/, vDashboard], [/^aufgaben$/, vMine], [/^alle$/, vAll], [/^projekte$/, vProjects], [/^projekt\/([^/]+)$/, vProject],
   [/^aufgabe\/([^/]+)$/, vTask], [/^pruefung$/, vReview], [/^archiv$/, vArchive], [/^mitteilungen$/, vNotifications],
-  [/^ideen$/, vIdeas], [/^nutzer$/, vUsers], [/^einstellungen$/, vSettings], [/^mehr$/, vMore], [/^suche\/(.+)$/, vSearch],
+  [/^ideen$/, vIdeas], [/^kalender$/, vCalendar], [/^nutzer$/, vUsers], [/^einstellungen$/, vSettings], [/^mehr$/, vMore], [/^suche\/(.+)$/, vSearch],
 ];
 let lastPath = null;
 function route() {
@@ -448,10 +448,11 @@ function vProject(id) {
     html: `<div class="page-h"><h1>${esc(p ? p.name : "Allgemein")}${p?.archived ? ' <span class="chip">archiviert</span>' : ""}</h1>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${canP ? `<button class="btn" id="pe">${i("edit")}Bearbeiten</button>
           <button class="btn" id="pa">${i("archive")}${p.archived ? "Wiederherstellen" : "Archivieren"}</button>` : ""}
-          <button class="btn red" data-new>${i("plus")}Aufgabe</button></div></div>
+          <button class="btn" id="pcal">${i("cal")}Kalender</button><button class="btn red" data-new>${i("plus")}Aufgabe</button></div></div>
       <div class="card" style="margin-bottom:12px"><div class="phead">${ring(g.pct)}<div class="info">
         <div><span class="muted">Erledigt:</span> ${g.done} von ${g.total}</div>
         ${p ? `<div style="display:flex;gap:6px;align-items:center"><span class="muted">Verantwortlich:</span> ${p.owner_id ? avatar(p.owner_id) + " " + esc(st.profile(p.owner_id)?.name || "") : "–"}</div>
+        ${p.start_date ? `<div><span class="muted">Beginn:</span> ${fmtDate(p.start_date)}</div>` : ""}
         <div><span class="muted">Enddatum:</span> ${p.due_date ? fmtDate(p.due_date) : "–"}</div>` : `<div class="muted">Aufgaben ohne Projekt</div>`}
       </div></div>${p?.description ? `<div class="desc">${esc(p.description)}</div>` : ""}</div>
       <div style="margin-bottom:10px">${seg([["open", `Offen · ${open.length}`], ["done", `Erledigt · ${done.length}`], ["all", "Alle"]], projTab, "pt")}</div>
@@ -459,6 +460,7 @@ function vProject(id) {
     after(r) {
       bindList(r);
       r.querySelectorAll("[data-pt]").forEach((b) => b.onclick = () => { projTab = b.dataset.pt; route(); });
+      r.querySelector("#pcal").onclick = () => { calF.proj = id; calF.anchor = null; location.hash = "#/kalender"; };
       const pe = r.querySelector("#pe"); if (pe) pe.onclick = () => openProjectForm(p);
       const pa = r.querySelector("#pa"); if (pa) pa.onclick = async () => {
         if (!p.archived && open.length && !confirm(`Es sind noch ${open.length} Aufgaben offen. Trotzdem archivieren?`)) return;
@@ -501,6 +503,7 @@ function vTask(id) {
       <div class="card">
         <div class="kv">
           <span class="k">Projekt</span><span>${p ? `<a href="#/projekt/${p.id}">${esc(p.name)}</a>` : "Allgemein"}</span>
+          ${t.start_date ? `<span class="k">Beginn</span><span>${fmtDate(t.start_date)}</span>` : ""}
           <span class="k">Frist</span><span class="${due.over && t.status !== "done" ? "over" : ""}">${t.due_date ? fmtDate(t.due_date) + (due.today ? " (heute)" : "") : "–"}</span>
           <span class="k">Priorität</span><span style="display:flex;gap:6px;align-items:center"><span class="prio p${t.priority}"></span>${PRIO[t.priority]}</span>
           <span class="k">Zuständig</span><span style="display:flex;flex-direction:column;gap:4px">${st.assigneesOf(id).map((u) => `<span style="display:flex;gap:6px;align-items:center">${avatar(u)}${esc(st.profile(u)?.name || "")}</span>`).join("") || "–"}</span>
@@ -590,7 +593,7 @@ function vMore() {
   const l = (h, ic, t, b) => `<a href="${h}">${i(ic)}<span>${t}</span>${b ? `<span class="badge">${b}</span>` : ""}</a>`;
   return {
     title: "Mehr", noFab: true,
-    html: `<div class="card mlist">${l("#/alle", "list", "Alle Aufgaben")}${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
+    html: `<div class="card mlist">${l("#/alle", "list", "Alle Aufgaben")}${l("#/kalender", "cal", "Kalender")}${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
       ${l("#/mitteilungen", "bell", "Benachrichtigungen", u)}${st.isAdmin() ? l("#/nutzer", "users", "Nutzer verwalten") : ""}${l("#/einstellungen", "gear", "Einstellungen")}</div>
       <form class="card" id="ms" style="margin-top:12px;padding:12px;display:flex;gap:8px"><input class="inp" name="q" placeholder="Suchen …"><button class="btn">${i("search")}</button></form>`,
     after(r) { r.querySelector("#ms").onsubmit = (e) => { e.preventDefault(); const q = e.target.q.value.trim(); if (q) location.hash = "#/suche/" + encodeURIComponent(q); }; },
@@ -612,6 +615,156 @@ function vSearch(q) {
   };
 }
 
+// ---------- Kalender (Gantt) ----------
+const dD = (s) => new Date(s + "T12:00:00");
+const dS = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addD = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const dDiff = (a, b) => Math.round((dD(b) - dD(a)) / 86400000);
+const MON = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const MONL = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+function isoWeek(d) {
+  const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const n = x.getUTCDay() || 7; x.setUTCDate(x.getUTCDate() + 4 - n);
+  return Math.ceil(((x - new Date(Date.UTC(x.getUTCFullYear(), 0, 1))) / 86400000 + 1) / 7);
+}
+const calF = {
+  mode: (() => { try { return localStorage.getItem("calMode") || "month"; } catch (_) { return "month"; } })(),
+  anchor: null, who: "", proj: "", done: false,
+};
+let calScroll = null;
+/** Sichtbarer Zeitraum je Ansicht: 2 Wochen ab Montag, Kalendermonat oder 3 Monate */
+function calRange() {
+  const a = calF.anchor ? dD(calF.anchor) : dD(todayStr());
+  let start, end, label;
+  if (calF.mode === "2w") {
+    start = addD(a, -((a.getDay() + 6) % 7)); end = addD(start, 13);
+    label = `KW ${isoWeek(start)}–${isoWeek(end)} · ${fmtDate(dS(start), false)} – ${fmtDate(dS(end))}`;
+  } else {
+    start = new Date(a.getFullYear(), a.getMonth(), 1, 12);
+    const n = calF.mode === "quarter" ? 3 : 1;
+    end = new Date(a.getFullYear(), a.getMonth() + n, 0, 12);
+    label = n === 1 ? `${MONL[start.getMonth()]} ${start.getFullYear()}` : `${MON[start.getMonth()]} ${start.getFullYear() !== end.getFullYear() ? start.getFullYear() + " " : ""}– ${MON[end.getMonth()]} ${end.getFullYear()}`;
+  }
+  return { start: dS(start), end: dS(end), days: dDiff(dS(start), dS(end)) + 1, label };
+}
+function calShift(dir) {
+  const a = calF.anchor ? dD(calF.anchor) : dD(todayStr());
+  const x = calF.mode === "2w" ? addD(a, 14 * dir) : new Date(a.getFullYear(), a.getMonth() + (calF.mode === "quarter" ? 3 : 1) * dir, 1, 12);
+  calF.anchor = dS(x); calScroll = null;
+}
+/** Zeitraum einer Aufgabe: Beginn bis Frist; ohne Beginn nur der Tag der Frist */
+function taskSpan(t) {
+  const s = t.start_date || t.due_date, e = t.due_date || t.start_date;
+  return s ? [s, e < s ? s : e] : null;
+}
+function vCalendar() {
+  const R = calRange();
+  const mob = innerWidth <= 900;
+  const dw = { "2w": mob ? 44 : 64, month: mob ? 30 : 38, quarter: mob ? 11 : 14 }[calF.mode];
+  const lw = mob ? 128 : 270;
+  const W = R.days * dw;
+  const today = todayStr(), tIdx = dDiff(R.start, today);
+  // Aufgaben filtern
+  let tasks = S.tasks.filter((t) => !st.archivedTask(t));
+  if (calF.who) tasks = tasks.filter((t) => st.assigneesOf(t.id).includes(calF.who));
+  if (calF.proj) tasks = tasks.filter((t) => (calF.proj === "allgemein" ? !t.project_id : t.project_id === calF.proj));
+  if (!calF.done) tasks = tasks.filter((t) => t.status !== "done");
+  const noDate = tasks.filter((t) => !taskSpan(t)).length;
+  const inRange = ([s, e]) => !(e < R.start || s > R.end);
+  // Balken-Position (abgeschnitten an den Rändern)
+  const pos = ([s, e]) => {
+    const a = Math.max(0, dDiff(R.start, s)), b = Math.min(R.days - 1, dDiff(R.start, e));
+    return { left: a * dw + 2, width: Math.max(dw - 4, (b - a + 1) * dw - 4), cl: s < R.start, cr: e > R.end };
+  };
+  const groups = [...st.activeProjects(), null].filter((p) => !calF.proj || (p ? p.id === calF.proj : calF.proj === "allgemein")).map((p) => {
+    const all = tasks.filter((t) => (p ? t.project_id === p.id : !t.project_id));
+    const rows = all.map((t) => [t, taskSpan(t)]).filter(([, sp]) => sp && inRange(sp))
+      .sort((a, b) => (a[1][0] + a[1][1]).localeCompare(b[1][0] + b[1][1]) || a[0].priority - b[0].priority);
+    // Projektbalken: Beginn/Enddatum des Projekts, sonst aus den Aufgaben abgeleitet
+    let span = null;
+    if (p) {
+      const sp = st.tasksOfProject(p.id).map(taskSpan).filter(Boolean);
+      const s = p.start_date || (sp.length ? sp.map((x) => x[0]).sort()[0] : null) || p.due_date;
+      const e = p.due_date || (sp.length ? sp.map((x) => x[1]).sort().pop() : null) || s;
+      if (s) span = [s, e < s ? s : e];
+    }
+    return { p, rows, span, show: rows.length || (span && inRange(span) && !calF.who) };
+  }).filter((g) => g.show);
+
+  // Kopf: Monate + Tage bzw. Kalenderwochen
+  let months = "", days = "", bg = "";
+  for (let k = 0; k < R.days; k++) {
+    const d = addD(dD(R.start), k), wd = d.getDay();
+    if (k === 0 || d.getDate() === 1) {
+      const rest = Math.min(R.days - k, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() - d.getDate() + 1);
+      months += `<div class="gm" style="left:${k * dw}px;width:${rest * dw}px">${rest * dw > 70 ? MONL[d.getMonth()] + " " + d.getFullYear() : MON[d.getMonth()]}</div>`;
+    }
+    if (calF.mode === "quarter") {
+      if (wd === 1 || k === 0) { const len = Math.min(R.days - k, wd === 1 ? 7 : (8 - wd) % 7 || 7); days += `<div class="gd wk" style="left:${k * dw}px;width:${len * dw}px">${len * dw >= 34 ? "KW " : ""}${isoWeek(d)}</div>`; }
+    } else days += `<div class="gd${wd === 0 || wd === 6 ? " we" : ""}${k === tIdx ? " td" : ""}" style="left:${k * dw}px;width:${dw}px"><small>${WD[wd]}</small>${d.getDate()}</div>`;
+    if (wd === 0 || wd === 6) bg += `<div class="gwe" style="left:${k * dw}px;width:${dw}px"></div>`;
+    if (calF.mode !== "quarter" || wd === 1) bg += `<div class="gvl${wd === 1 ? " mo" : ""}" style="left:${k * dw}px"></div>`;
+  }
+  if (tIdx >= 0 && tIdx < R.days) bg += `<div class="gtoday" style="left:${tIdx * dw + dw / 2 - 1}px" title="Heute"></div>`;
+
+  const barCls = (t) => t.status === "done" ? "done" : t.status === "review" ? "rev" : t.due_date && t.due_date < today ? "over" : "";
+  const rowsHtml = groups.map(({ p, rows, span }) => {
+    let h = `<div class="grow gproj"><a class="glbl" href="#/projekt/${p ? p.id : "allgemein"}">${i("folder", "width:15px;height:15px")}<span class="gt">${esc(p ? p.name : "Allgemein")}</span></a><div class="gtrack">`;
+    if (p && span && inRange(span)) {
+      const ps = pos(span), g = st.progress(st.tasksOfProject(p.id));
+      h += `<a class="gpbar${ps.cl ? " cl" : ""}${ps.cr ? " cr" : ""}" href="#/projekt/${p.id}" style="left:${ps.left}px;width:${ps.width}px" title="${esc(p.name)}: ${fmtDate(span[0])} – ${fmtDate(span[1])} · ${g.pct} % erledigt"><span style="width:${g.pct}%"></span></a>`;
+    }
+    h += `</div></div>`;
+    h += rows.map(([t, sp]) => {
+      const ps = pos(sp), one = sp[0] === sp[1];
+      const tip = `${t.title} · ${one ? fmtDate(sp[0]) : fmtDate(sp[0]) + " – " + fmtDate(sp[1])}${t.start_date ? "" : " (nur Frist)"}`;
+      return `<div class="grow"><div class="glbl" data-open="${t.id}"><span class="prio p${t.priority}"></span><span class="gt ${t.status === "done" ? "strike" : ""}">${esc(t.title)}</span>${mob ? "" : avatars(st.assigneesOf(t.id))}</div>
+        <div class="gtrack"><div class="gbar ${barCls(t)}${one ? " one" : ""}${ps.cl ? " cl" : ""}${ps.cr ? " cr" : ""}" data-open="${t.id}" style="left:${ps.left}px;width:${ps.width}px" title="${esc(tip)}">${ps.width > 90 ? `<span>${esc(t.title)}</span>` : ""}</div></div></div>`;
+    }).join("");
+    return h;
+  }).join("");
+
+  const sel = (id, opts, cur) => `<select class="inp" id="${id}" style="width:auto">${opts.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+  return {
+    title: "Kalender",
+    html: `<div class="page-h calh"><h1>Kalender</h1>${seg([["2w", "2 Wochen"], ["month", "Monat"], ["quarter", "Quartal"]], calF.mode, "cm")}</div>
+      <div class="gctl">
+        <div class="gnav"><button class="btn sm" id="cprev" aria-label="Zurück">${i("back", "width:16px;height:16px")}</button><button class="btn sm" id="ctoday">Heute</button>
+          <button class="btn sm" id="cnext" aria-label="Weiter">${i("back", "width:16px;height:16px;transform:rotate(180deg)")}</button><b class="glabel">${esc(R.label)}</b></div>
+        <div class="gfil">${sel("cw", [["", "Alle Personen"], ...st.activeProfiles().map((u) => [u.id, u.name])], calF.who)}
+          ${sel("cp", [["", "Alle Projekte"], ["allgemein", "Allgemein"], ...st.activeProjects().map((u) => [u.id, u.name])], calF.proj)}
+          <label class="check" style="font-size:13px"><input type="checkbox" id="cd" ${calF.done ? "checked" : ""}>Erledigte zeigen</label></div>
+      </div>
+      <div class="card gantt" style="--dw:${dw}px;--lw:${lw}px">
+        ${groups.length ? `<div class="gscroll" id="gs"><div class="gtable" style="width:${lw + W}px">
+          <div class="grow ghead"><div class="glbl">Aufgabe</div><div class="gtrack"><div class="gms">${months}</div><div class="gds">${days}</div></div></div>
+          <div class="gbody"><div class="gbg" style="left:${lw}px;width:${W}px">${bg}</div>${rowsHtml}</div>
+        </div></div>` : `<div class="empty">Im gewählten Zeitraum stehen keine Aufgaben mit Frist.</div>`}
+      </div>
+      <div class="glegend muted"><span><i class="gbar lg"></i>offen</span><span><i class="gbar lg over"></i>überfällig</span><span><i class="gbar lg rev"></i>zur Prüfung</span><span><i class="gbar lg done"></i>erledigt</span><span><i class="gpbar lg"><span style="width:60%"></span></i>Projekt (Fortschritt)</span></div>
+      <p class="muted" style="font-size:13px;margin:8px 2px 0">Balken laufen vom Beginn bis zur Frist. Aufgaben ohne Beginn erscheinen als kurzer Balken am Tag der Frist – den Beginn trägst du beim Bearbeiten der Aufgabe ein.${S.hasStart ? "" : " <b>Hinweis:</b> Das Feld „Beginn“ ist verfügbar, sobald ein Admin 05_bewertung_kalender.sql in Supabase ausgeführt hat."}
+        ${noDate ? `<br>${noDate} ${noDate === 1 ? "Aufgabe hat" : "Aufgaben haben"} weder Beginn noch Frist und ${noDate === 1 ? "erscheint" : "erscheinen"} nicht im Kalender – siehe <a href="#/alle">Alle Aufgaben</a>.` : ""}</p>`,
+    after(r) {
+      bindList(r);
+      r.querySelectorAll("[data-cm]").forEach((b) => b.onclick = () => { calF.mode = b.dataset.cm; calScroll = null; try { localStorage.setItem("calMode", calF.mode); } catch (_) { /* */ } route(); });
+      r.querySelector("#cprev").onclick = () => { calShift(-1); route(); };
+      r.querySelector("#cnext").onclick = () => { calShift(1); route(); };
+      r.querySelector("#ctoday").onclick = () => { calF.anchor = null; calScroll = null; route(); };
+      r.querySelector("#cw").onchange = (e) => { calF.who = e.target.value; route(); };
+      r.querySelector("#cp").onchange = (e) => { calF.proj = e.target.value; route(); };
+      r.querySelector("#cd").onchange = (e) => { calF.done = e.target.checked; route(); };
+      const gs = r.querySelector("#gs");
+      if (gs) {
+        // Position merken (Live-Aktualisierung zeichnet neu); sonst „heute“ in den sichtbaren Bereich holen
+        if (calScroll && calScroll.key === R.start + calF.mode) gs.scrollLeft = calScroll.x;
+        else if (tIdx >= 0 && tIdx < R.days) gs.scrollLeft = Math.max(0, tIdx * dw - Math.min(3 * dw, (gs.clientWidth - lw) / 3));
+        gs.addEventListener("scroll", () => { calScroll = { key: R.start + calF.mode, x: gs.scrollLeft }; }, { passive: true });
+      }
+    },
+  };
+}
+
 // ---------- Ideen ----------
 function ideaRow(x) {
   const p = x.project_id ? st.project(x.project_id) : null;
@@ -620,6 +773,7 @@ function ideaRow(x) {
   let meta = "";
   if (p) meta += `<span class="chip">${esc(p.name)}</span>`;
   if (x.status === "adopted") meta += `<span class="chip" style="background:#e3f4ea;color:#1a7a45">übernommen${x.adopted_at ? " " + fmtDate(x.adopted_at.slice(0, 10)) : ""}</span>`;
+  if (S.hasRating) meta += rateBadge(x);
   meta += `<span class="m">${esc(st.profile(x.created_by)?.name || "")} · ${fmtTime(x.created_at)}</span>`;
   const act = x.status === "open"
     ? `<button class="btn sm" data-adopt="${x.id}" title="Als Aufgabe oder Projekt übernehmen">${i("check", "width:15px;height:15px")}Übernehmen</button>`
@@ -629,6 +783,14 @@ function ideaRow(x) {
   return `<div class="trow irow" data-idea="${x.id}"><span class="ibulb ${x.status}">${i("bulb")}</span>
     <div class="tt"><div class="ti">${esc(x.title)}</div>${x.description ? `<div class="idesc">${esc(x.description)}</div>` : ""}<div class="meta">${meta}</div></div>
     <div class="side-r"><div class="iact">${act}</div></div></div>`;
+}
+/** Kurzanzeige der Bewertung: M/R/P mit je drei Punkten + Gesamtwert */
+function rateBadge(x) {
+  if (!st.ideaRated(x)) return `<span class="rates none">noch nicht bewertet</span>`;
+  const sc = st.ideaScore(x);
+  return `<span class="rates" title="${st.RATE_KEYS.map(([k, l]) => `${l}: ${x[k] ? st.RATE_LBL[x[k]] : "–"}`).join(" · ")}">
+    ${st.RATE_KEYS.map(([k, , s]) => `<span class="rk">${s}<span class="dots v${x[k] || 0}"><i></i><i></i><i></i></span></span>`).join("")}
+    <span class="sc ${sc >= 7 ? "hi" : ""}">${sc}/9</span></span>`;
 }
 function bindIdeas(root) {
   root.querySelectorAll("[data-adopt]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); adoptIdea(st.idea(b.dataset.adopt)); });
@@ -654,22 +816,29 @@ function adoptIdeaAsTask(x) {
 }
 
 let ideaTab = "open";
+let ideaSort = (() => { try { return localStorage.getItem("ideaSort") || "score"; } catch (_) { return "score"; } })();
+const IDEA_SORTS = [["score", "Gesamtwert"], ["priority", "Priorität"], ["relevance", "Relevanz"], ["feasibility", "Machbarkeit"], ["new", "Neueste zuerst"]];
 function vIdeas() {
   if (S.ideasMissing) return { title: "Ideen", noFab: true,
     html: `<div class="page-h"><h1>Ideen</h1></div><div class="card empty">Der Ideen-Bereich ist noch nicht eingerichtet.<br>Ein Admin muss einmalig die Datenbank-Erweiterung <b>03_ideen.sql</b> in Supabase ausführen.</div>` };
   const open = S.ideas.filter((x) => x.status === "open"), done = S.ideas.filter((x) => x.status === "adopted");
-  const list = ideaTab === "open" ? open : done;
+  const sortBy = S.hasRating ? ideaSort : "new";
+  const list = st.sortIdeas(ideaTab === "open" ? open : done, sortBy);
   return {
     title: "Ideen",
     html: `<div class="page-h"><h1>Ideen</h1><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         ${seg([["open", `Offen · ${open.length}`], ["adopted", `Übernommen · ${done.length}`]], ideaTab, "it")}
         <button class="btn red" id="ni">${i("plus")}Idee</button></div></div>
       <form class="card iquick" id="iq">${i("bulb", "color:var(--warn)")}<input id="iqin" placeholder="Idee schnell notieren …" autocomplete="off" maxlength="200"><button class="btn red sm">Notieren</button></form>
-      <p class="muted" style="font-size:13px;margin:0 2px 12px">Hier landet alles, was man nicht vergessen will, aber noch keine Aufgabe ist. Mit „Übernehmen“ wird daraus eine Aufgabe oder ein Projekt – Titel und Beschreibung werden übernommen.</p>
+      <p class="muted" style="font-size:13px;margin:0 2px 12px">Hier landet alles, was man nicht vergessen will, aber noch keine Aufgabe ist. Ideen lassen sich nach Machbarkeit, Relevanz und Priorität bewerten (Idee antippen). Mit „Übernehmen“ wird daraus eine Aufgabe oder ein Projekt.</p>
+      ${S.hasRating ? `<div class="isort"><label for="isrt" class="muted">Sortieren nach</label><select class="inp" id="isrt">${IDEA_SORTS.map(([k, l]) => `<option value="${k}" ${k === ideaSort ? "selected" : ""}>${l}</option>`).join("")}</select></div>`
+        : `<div class="card note" style="border-left-color:var(--warn)"><div class="tx muted" style="font-size:13px">Bewerten und Sortieren ist verfügbar, sobald ein Admin <b>05_bewertung_kalender.sql</b> in Supabase ausgeführt hat.</div></div>`}
       <div class="card list-cards">${list.map(ideaRow).join("") || `<div class="empty">${ideaTab === "open" ? "Noch keine Ideen notiert." : "Noch keine Idee übernommen."}</div>`}</div>`,
     after(r) {
       bindIdeas(r);
       r.querySelectorAll("[data-it]").forEach((b) => b.onclick = () => { ideaTab = b.dataset.it; route(); });
+      const srt = r.querySelector("#isrt");
+      if (srt) srt.onchange = () => { ideaSort = srt.value; try { localStorage.setItem("ideaSort", ideaSort); } catch (_) { /* */ } route(); };
       r.querySelector("#ni").onclick = () => openIdeaForm();
       r.querySelector("#iq").onsubmit = async (e) => {
         e.preventDefault();
@@ -787,7 +956,7 @@ function modal(title, body, foot, onMount) {
 
 function openTaskForm(t, preset = {}) {
   const edit = !!t;
-  const d = t || { title: preset.title || "", description: preset.description || "", project_id: preset.project_id || "", due_date: "", priority: 2, needs_approval: false };
+  const d = t || { title: preset.title || "", description: preset.description || "", project_id: preset.project_id || "", start_date: preset.start_date || "", due_date: preset.due_date || "", priority: 2, needs_approval: false };
   const ass = edit ? st.assigneesOf(t.id) : [S.me];
   const projs = st.activeProjects();
   if (d.project_id && !projs.find((p) => p.id === d.project_id)) { const pp = st.project(d.project_id); if (pp) projs.push(pp); }
@@ -795,9 +964,10 @@ function openTaskForm(t, preset = {}) {
     <div class="err hidden" id="fe"></div>
     <div class="field"><label>Titel *</label><input name="title" value="${esc(d.title)}" maxlength="200" required></div>
     <div class="field"><label>Beschreibung</label><textarea name="description">${esc(d.description || "")}</textarea></div>
+    <div class="field"><label>Projekt</label><select name="project_id"><option value="">Allgemein (ohne Projekt)</option>
+      ${projs.map((p) => `<option value="${p.id}" ${p.id === d.project_id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div>
     <div class="row2">
-      <div class="field"><label>Projekt</label><select name="project_id"><option value="">Allgemein (ohne Projekt)</option>
-        ${projs.map((p) => `<option value="${p.id}" ${p.id === d.project_id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div>
+      ${S.hasStart ? `<div class="field"><label>Beginn (optional, für den Kalender)</label><input type="date" name="start_date" value="${d.start_date || ""}"></div>` : ""}
       <div class="field"><label>Frist</label><input type="date" name="due_date" value="${d.due_date || ""}"></div>
     </div>
     <div class="field"><label>Priorität</label><div class="pick">${[1, 2, 3].map((p) => `<label><input type="radio" name="priority" value="${p}" ${p === d.priority ? "checked" : ""}><span class="prio p${p}" style="margin-left:6px"></span>${PRIO[p]}</label>`).join("")}</div></div>
@@ -812,10 +982,12 @@ function openTaskForm(t, preset = {}) {
         const data = {
           title: f.title.value.trim(), description: f.description.value.trim(), project_id: f.project_id.value,
           due_date: f.due_date.value, priority: Number(f.priority.value), needs_approval: f.needs_approval.checked,
+          start_date: f.start_date ? f.start_date.value : "",
         };
         const a = [...f.querySelectorAll("[name=ass]:checked")].map((x) => x.value);
         if (!data.title) { fe.textContent = "Bitte einen Titel eingeben."; return fe.classList.remove("hidden"); }
         if (!a.length) { fe.textContent = "Bitte mindestens eine Person zuweisen."; return fe.classList.remove("hidden"); }
+        if (data.start_date && data.due_date && data.start_date > data.due_date) { fe.textContent = "Der Beginn liegt nach der Frist."; return fe.classList.remove("hidden"); }
         const b = f.querySelector("#sv"); b.disabled = true;
         try {
           if (edit) { await st.updateTask(t.id, data, a); toast("Gespeichert"); close(); }
@@ -847,13 +1019,19 @@ function openIdeaForm(x) {
     <div class="field"><label>Idee *</label><input name="title" value="${esc(d.title)}" maxlength="200" required ${dis}></div>
     <div class="field"><label>Notizen</label><textarea name="description" ${dis}>${esc(d.description || "")}</textarea></div>
     <div class="field"><label>Passt zu Projekt (optional)</label><select name="project_id" ${dis}><option value="">–</option>
-      ${projs.map((p) => `<option value="${p.id}" ${p.id === d.project_id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div>`,
+      ${projs.map((p) => `<option value="${p.id}" ${p.id === d.project_id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div>
+    ${S.hasRating ? `<div class="field"><label>Bewertung</label><div class="rgrid">${st.RATE_KEYS.map(([k, l]) => `<span class="rl">${l}</span>
+      <div class="pick rpick">${[[0, "–"], [1, "niedrig"], [2, "mittel"], [3, "hoch"]].map(([v, t]) => `<label><input type="radio" name="r_${k}" value="${v}" ${(d[k] || 0) === v ? "checked" : ""} ${dis}>${t}</label>`).join("")}</div>`).join("")}</div></div>` : ""}`,
     `${edit && can ? `<button type="button" class="btn danger" id="idel" style="margin-right:auto" title="Löschen">${i("trash")}</button>` : ""}
      ${edit && x.status === "open" ? `<button type="button" class="btn" id="iad">${i("check")}Übernehmen</button>` : ""}
      ${edit && x.status === "adopted" && can ? `<button type="button" class="btn" id="ire">${i("undo")}Wieder offen</button>` : ""}
      ${can ? `<button class="btn red" id="sv">${edit ? "Speichern" : "Notieren"}</button>` : `<button type="button" class="btn" data-close>Schließen</button>`}`,
     (f, close) => {
-      const read = () => ({ title: f.title.value.trim(), description: f.description.value.trim() || null, project_id: f.project_id.value || null });
+      const read = () => {
+        const r = { title: f.title.value.trim(), description: f.description.value.trim() || null, project_id: f.project_id.value || null };
+        if (S.hasRating) st.RATE_KEYS.forEach(([k]) => { r[k] = Number(f.querySelector(`[name=r_${k}]:checked`)?.value || 0) || null; });
+        return r;
+      };
       f.onsubmit = async (e) => {
         e.preventDefault();
         if (!can) return close();
@@ -870,7 +1048,8 @@ function openIdeaForm(x) {
       if (ad) ad.onclick = async () => {
         // ungespeicherte Änderungen vorher sichern, damit sie in die Aufgabe bzw. das Projekt übernommen werden
         const data = read();
-        if (can && data.title && (data.title !== x.title || data.description !== (x.description || null) || data.project_id !== (x.project_id || null))) {
+        if (can && data.title && (data.title !== x.title || data.description !== (x.description || null) || data.project_id !== (x.project_id || null)
+          || st.RATE_KEYS.some(([k]) => k in data && data[k] !== (x[k] || null)))) {
           try { await st.updateIdea(x.id, data); } catch (_) { /* */ }
         }
         close(); adoptIdea({ ...x, ...(can && data.title ? data : {}) });
@@ -887,14 +1066,15 @@ function openIdeaForm(x) {
 
 function openProjectForm(p, preset = {}) {
   const edit = !!p;
-  const d = p || { name: preset.name || "", description: preset.description || "", owner_id: S.me, due_date: "" };
+  const d = p || { name: preset.name || "", description: preset.description || "", owner_id: S.me, start_date: "", due_date: "" };
   modal(edit ? "Projekt bearbeiten" : preset.idea_id ? "Idee als Projekt übernehmen" : "Neues Projekt", `
     <div class="err hidden" id="fe"></div>
     <div class="field"><label>Name *</label><input name="name" value="${esc(d.name)}" maxlength="120" required></div>
     <div class="field"><label>Beschreibung</label><textarea name="description">${esc(d.description || "")}</textarea></div>
+    <div class="field"><label>Verantwortlich</label><select name="owner_id"><option value="">–</option>
+      ${st.activeProfiles().map((u) => `<option value="${u.id}" ${u.id === d.owner_id ? "selected" : ""}>${esc(u.name)}</option>`).join("")}</select></div>
     <div class="row2">
-      <div class="field"><label>Verantwortlich</label><select name="owner_id"><option value="">–</option>
-        ${st.activeProfiles().map((u) => `<option value="${u.id}" ${u.id === d.owner_id ? "selected" : ""}>${esc(u.name)}</option>`).join("")}</select></div>
+      ${S.hasStart ? `<div class="field"><label>Beginn (optional)</label><input type="date" name="start_date" value="${d.start_date || ""}"></div>` : ""}
       <div class="field"><label>Enddatum</label><input type="date" name="due_date" value="${d.due_date || ""}"></div>
     </div>`,
     `${edit && (st.isAdmin() || p.created_by === S.me) ? `<button type="button" class="btn danger" id="pd" style="margin-right:auto">${i("trash")}Löschen</button>` : ""}
@@ -903,8 +1083,10 @@ function openProjectForm(p, preset = {}) {
       f.onsubmit = async (e) => {
         e.preventDefault();
         const data = { name: f.name.value.trim(), description: f.description.value.trim() || null, owner_id: f.owner_id.value || null, due_date: f.due_date.value || null };
+        if (f.start_date) data.start_date = f.start_date.value || null;
         const fe = f.querySelector("#fe");
         if (!data.name) { fe.textContent = "Bitte einen Namen eingeben."; return fe.classList.remove("hidden"); }
+        if (data.start_date && data.due_date && data.start_date > data.due_date) { fe.textContent = "Der Beginn liegt nach dem Enddatum."; return fe.classList.remove("hidden"); }
         try {
           if (edit) { await st.updateProject(p.id, data); toast("Gespeichert"); close(); }
           else {
