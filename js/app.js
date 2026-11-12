@@ -5,6 +5,7 @@ import {
   i, esc, fmtDate, fmtDue, fmtTime, initials, greeting, longDate, toast, b64uToUint8, isIOS, isStandalone, COLORS, daysUntil, todayStr,
 } from "./util.js";
 import * as st from "./store.js";
+import { NEUERUNGEN, fassungKleiner } from "./neuerungen.js";
 const { S } = st;
 
 const $app = document.getElementById("app");
@@ -132,7 +133,7 @@ function shell() {
     <form class="search" id="ss">${i("search")}<input placeholder="Suche" name="q"></form>
     <nav id="snav"></nav>
     <div id="sadmin"></div>
-    <div class="foot">Nordbeck To-Do · v${APP_VERSION}</div>
+    <a href="#" class="foot" data-news title="Was ist neu">Nordbeck To-Do · v${APP_VERSION}</a>
   </aside>
   <header class="top">
     <form class="search" id="ts">${i("search")}<input placeholder="Aufgaben und Projekte durchsuchen …" name="q"></form>
@@ -166,6 +167,8 @@ function shell() {
       return;
     }
     if (e.target.id === "newmenu-bg") return closeNewMenu();
+    const nw = e.target.closest("[data-news]");
+    if (nw) { e.preventDefault(); return showNews(true); }
     const n = e.target.closest("[data-new]");
     if (n) { e.preventDefault(); openTaskForm(null, { project_id: currentProject() }); }
   });
@@ -594,7 +597,7 @@ function vMore() {
   return {
     title: "Mehr", noFab: true,
     html: `<div class="card mlist">${l("#/alle", "list", "Alle Aufgaben")}${l("#/kalender", "cal", "Kalender")}${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
-      ${l("#/mitteilungen", "bell", "Benachrichtigungen", u)}${st.isAdmin() ? l("#/nutzer", "users", "Nutzer verwalten") : ""}${l("#/einstellungen", "gear", "Einstellungen")}</div>
+      ${l("#/mitteilungen", "bell", "Benachrichtigungen", u)}${st.isAdmin() ? l("#/nutzer", "users", "Nutzer verwalten") : ""}${l("#/einstellungen", "gear", "Einstellungen")}<a href="#" data-news>${i("star")}<span>Was ist neu</span></a></div>
       <form class="card" id="ms" style="margin-top:12px;padding:12px;display:flex;gap:8px"><input class="inp" name="q" placeholder="Suchen …"><button class="btn">${i("search")}</button></form>`,
     after(r) { r.querySelector("#ms").onsubmit = (e) => { e.preventDefault(); const q = e.target.q.value.trim(); if (q) location.hash = "#/suche/" + encodeURIComponent(q); }; },
   };
@@ -917,6 +920,8 @@ function vSettings() {
         <form class="card" id="pwf"><div class="card-h"><h3>Passwort ändern</h3></div><div style="padding:18px">
           <div class="field"><label>Neues Passwort (mind. 8 Zeichen)</label><input type="password" name="a" minlength="8" autocomplete="new-password" required></div>
           <button class="btn">Passwort ändern</button></div></form>
+        <div class="card" style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <span><b>Was ist neu</b><br><span class="muted" style="font-size:12px">Die letzten Änderungen an der App</span></span><button class="btn" data-news>${i("star")}Anzeigen</button></div>
         <div class="card" style="padding:18px;display:flex;justify-content:space-between;align-items:center">
           <span class="muted" style="font-size:12px">Nordbeck To-Do · Version ${APP_VERSION}<br><span id="diag" style="font-size:11px"></span></span><button class="btn" id="lo">${i("logout")}Abmelden</button></div>
       </div></div>`,
@@ -1192,6 +1197,39 @@ function openPasswordForm(p) {
 }
 
 // =====================================================================
+// Was ist neu
+// =====================================================================
+const NEWS_KEY = "nbt-neu-gesehen";
+// Geräte ohne Merker hatten die App schon vor dieser Funktion (bis 1.0.22) –
+// sie sollen die Neuerungen ab 1.0.23 einmal zu sehen bekommen.
+const NEWS_START = "1.0.22";
+function newsSeen() { try { return localStorage.getItem(NEWS_KEY) || NEWS_START; } catch (_) { return APP_VERSION; } }
+function newsMark() { try { localStorage.setItem(NEWS_KEY, APP_VERSION); } catch (_) { /* */ } }
+/** manual = false: beim Start nur das zeigen, was seit dem letzten Mal dazugekommen ist.
+ *  manual = true (von Hand): immer die letzten Einträge zeigen. */
+function showNews(manual) {
+  closeNewMenu();
+  const cur = NEUERUNGEN.filter((n) => !fassungKleiner(APP_VERSION, n.fassung));
+  const list = manual ? cur.slice(0, 6) : cur.filter((n) => fassungKleiner(newsSeen(), n.fassung));
+  if (!manual) newsMark(); // auch beim Wegtippen gemerkt – sonst käme dasselbe Fenster bei jedem Start
+  if (!list.length) { if (manual) toast("Zu dieser Version gibt es nichts Neues."); return; }
+  modal("Was ist neu", `
+    <div class="news-head">${i("star")}<div><b>Nordbeck To-Do ${esc(APP_VERSION)}</b><div class="muted">${manual ? "Die letzten Änderungen" : "Seit deinem letzten Besuch hat sich etwas getan"}</div></div></div>
+    ${list.map((n) => `<div class="news-ver">Version ${esc(n.fassung)}${n.datum ? " · " + esc(n.datum) : ""}</div>
+      <ul class="news-list">${n.punkte.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>`).join("")}
+    ${manual ? "" : `<p class="muted" style="font-size:12px;margin-top:10px">Später nachlesen: Einstellungen › „Was ist neu“.</p>`}`,
+    `<button type="button" class="btn red" data-close>Alles klar</button>`,
+    (f) => { f.onsubmit = (e) => e.preventDefault(); });
+}
+/** Beim Start einmal prüfen – aber nicht über ein anderes offenes Fenster legen (z. B. die Push-Frage) */
+function newsCheck(tries = 0) {
+  if (!shellReady || !S.me) return;
+  if (!NEUERUNGEN.some((n) => fassungKleiner(newsSeen(), n.fassung) && !fassungKleiner(APP_VERSION, n.fassung))) return newsMark();
+  if ($modal.innerHTML.trim()) { if (tries < 600) setTimeout(() => newsCheck(tries + 1), 1000); return; }
+  showNews(false);
+}
+
+// =====================================================================
 // Push
 // =====================================================================
 let pushCache = null;
@@ -1249,4 +1287,5 @@ async function autoPush() {
 }
 boot().then(async () => {
   if ("serviceWorker" in navigator && "PushManager" in window) { await refreshPushCache(); await autoPush(); if (shellReady) route(); }
+  setTimeout(newsCheck, 600);
 });

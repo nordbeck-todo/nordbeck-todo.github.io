@@ -409,3 +409,13 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 }
 /* Kalender am PC über die volle Fensterbreite */
 @media (min-width: 901px) { .main:has(.gantt) { max-width: none; } }
+
+/* Was ist neu (ab v1.0.26) */
+.news-head { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+.news-head svg { width: 34px; height: 34px; color: var(--accent); flex: none; }
+.news-head b { font-size: 16px; }
+.news-ver { font-size: 12px; font-weight: 600; letter-spacing: .03em; color: var(--muted); text-transform: uppercase; margin: 12px 0 6px; }
+.news-list { padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.news-list li { line-height: 1.45; }
+.side a.foot { color: var(--side-muted); } .side a.foot:hover { color: #fff; }
+.mlist a svg { width: 18px; height: 18px; }

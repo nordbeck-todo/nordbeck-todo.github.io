@@ -1,6 +1,6 @@
 // Nordbeck To-Do – Service Worker: App-Dateien zwischenspeichern, Push anzeigen
-const CACHE = "nordbeck-todo-v1.0.25";
-const SHELL = ["./", "index.html", "css/app.css", "js/app.js", "js/store.js", "js/util.js", "js/config.js", "js/supabase.js",
+const CACHE = "nordbeck-todo-v1.0.26";
+const SHELL = ["./", "index.html", "css/app.css", "js/app.js", "js/store.js", "js/util.js", "js/neuerungen.js", "js/config.js", "js/supabase.js",
   "img/logo.png", "icons/icon-192.png", "icons/badge-96.png", "manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
