@@ -265,6 +265,63 @@ function avatar(uid, cls = "") {
 const avatars = (ids) => `<span class="avs">${ids.map((u) => avatar(u)).join("")}</span>`;
 const PRIO = { 1: "Hoch", 2: "Mittel", 3: "Niedrig" };
 
+// ---------- Wiederholung (Aufgaben und Projekte, ab v1.0.29) ----------
+const REC_OPTS = [["", "Nicht wiederholen"], ["workday:1", "Werktags (Mo–Fr)"], ["day:1", "Täglich"], ["week:1", "Wöchentlich"], ["week:2", "Alle 2 Wochen"],
+  ["month:1", "Monatlich"], ["month:3", "Vierteljährlich"], ["month:6", "Halbjährlich"], ["year:1", "Jährlich"], ["custom", "Eigener Rhythmus …"]];
+const REC_UNITS = { day: ["Tag", "Tage"], week: ["Woche", "Wochen"], month: ["Monat", "Monate"], year: ["Jahr", "Jahre"] };
+const recKey = (r) => {
+  if (!r || !r.unit) return "";
+  const k = `${r.unit}:${r.every || 1}`;
+  return REC_OPTS.some((o) => o[0] === k) ? k : "custom";
+};
+/** Kurztext, z. B. „Monatlich“, „Alle 3 Wochen bis 31.12.2027“ */
+function recText(r) {
+  if (!r || !r.unit) return "";
+  const k = recKey(r);
+  let s = k === "custom" ? `Alle ${r.every} ${REC_UNITS[r.unit]?.[1] || ""}` : REC_OPTS.find((o) => o[0] === k)[1].replace(" (Mo–Fr)", "");
+  if (r.until) s += ` bis ${fmtDate(r.until)}`;
+  return s;
+}
+/** Formularfelder „Wiederholen“ – kind: "task" oder "project" */
+function recFields(r, kind) {
+  const k = recKey(r);
+  const hint = kind === "task"
+    ? "Beim Abhaken legt die App automatisch die nächste Aufgabe mit neuer Frist an – mit denselben Zuständigen und der Checkliste."
+    : "Beim Archivieren legt die App das Projekt mit allen Aufgaben für die nächste Runde neu an – Termine verschoben, alles wieder offen.";
+  return `<div class="field"><label>Wiederholen</label><select name="rec">${REC_OPTS.map(([v, l]) => `<option value="${v}" ${v === k ? "selected" : ""}>${l}</option>`).join("")}</select>
+      <div class="muted rec-on ${k ? "" : "hidden"}" style="font-size:12px">${hint}</div></div>
+    <div class="row2 rec-cus ${k === "custom" ? "" : "hidden"}">
+      <div class="field"><label>Alle</label><input type="number" name="rec_n" min="1" max="99" inputmode="numeric" value="${k === "custom" ? r.every : 2}"></div>
+      <div class="field"><label>Einheit</label><select name="rec_u">${Object.entries(REC_UNITS).map(([u, l]) => `<option value="${u}" ${k === "custom" && r.unit === u ? "selected" : ""}>${l[1]}</option>`).join("")}</select></div>
+    </div>
+    <div class="field rec-on ${k ? "" : "hidden"}"><label>Wiederholen bis (optional)</label><input type="date" name="rec_until" value="${r?.until || ""}"></div>`;
+}
+function bindRec(f) {
+  if (!f.rec) return;
+  f.rec.onchange = () => {
+    f.querySelectorAll(".rec-on").forEach((el) => el.classList.toggle("hidden", !f.rec.value));
+    f.querySelector(".rec-cus").classList.toggle("hidden", f.rec.value !== "custom");
+  };
+}
+/** Regel aus dem Formular lesen; undefined = Feld nicht vorhanden (06 nicht eingespielt), null = keine Wiederholung */
+function readRec(f, old, sameDue) {
+  if (!f.rec) return undefined;
+  const v = f.rec.value;
+  if (!v) return null;
+  let [unit, every] = v === "custom" ? [f.rec_u.value, f.rec_n.value] : v.split(":");
+  every = Math.max(1, Math.min(99, Math.round(Number(every)) || 1));
+  const r = { unit, every };
+  if (f.rec_until.value) r.until = f.rec_until.value;
+  // Tag im Monat (setzt die Datenbank) behalten, solange Rhythmus und Frist gleich bleiben
+  if (old?.tag && old.unit === unit && sameDue) r.tag = old.tag;
+  return r;
+}
+/** Hinweis nach dem Abhaken, wann die nächste Wiederholung fällig ist */
+function nextInfo(id) {
+  const t = st.task(id), n = t?.next_task_id && st.task(t.next_task_id);
+  return n ? ` – nächste Runde ${n.due_date ? "am " + fmtDate(n.due_date) : "angelegt"}` : "";
+}
+
 function cbHtml(t) {
   const cls = t.status === "done" ? "done" : t.status === "review" ? "review" : "";
   const title = t.status === "done" ? "Wieder öffnen" : t.status === "review" ? "Wartet auf Bestätigung" : "Abhaken";
@@ -280,6 +337,7 @@ function taskRow(t, opt = {}) {
   let meta = "";
   if (opt.project !== false) meta += `<span class="chip">${esc(p ? p.name : "Allgemein")}</span>`;
   if (t.status === "review") meta += `<span class="chip" style="background:#fff1d6;color:#9a6200">zur Prüfung</span>`;
+  if (t.recurrence?.unit) meta += `<span class="m" title="Wiederholung">${i("repeat")}${esc(recText(t.recurrence))}</span>`;
   if (ck.length) meta += `<span class="m">${i("clist")}${ck.filter((c) => c.done).length}/${ck.length}</span>`;
   if (cm) meta += `<span class="m">${i("chat")}${cm}</span>`;
   if (t.status === "done" && t.done_by) meta += `<span class="m">erledigt von ${esc(st.profile(t.done_by)?.name || "")}</span>`;
@@ -305,7 +363,7 @@ function bindList(root) {
     if (t.status !== "open" && !confirm("Aufgabe wieder öffnen?")) return;
     try {
       const s = await st.toggleTask(t);
-      toast(s === "done" ? "Erledigt ✓" : s === "review" ? "Zur Prüfung an den Ersteller geschickt" : "Wieder geöffnet");
+      toast(s === "done" ? "Erledigt ✓" + nextInfo(t.id) : s === "review" ? "Zur Prüfung an den Ersteller geschickt" : "Wieder geöffnet");
     } catch (er) { toast(er.message); }
   });
   root.querySelectorAll("[data-open]").forEach((r) => r.onclick = () => (location.hash = "#/aufgabe/" + r.dataset.open));
@@ -426,7 +484,7 @@ function projectCard(p) {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px" class="muted">
       <span style="display:flex;gap:6px;align-items:center">${p ? (p.owner_id ? avatar(p.owner_id) + " " + esc(st.profile(p.owner_id)?.name || "") : "kein Verantwortlicher") : "Aufgaben ohne Projekt"}</span>
       <span>${open} offen · ${g.done}/${g.total}</span></div>
-    ${p?.due_date ? `<div class="muted" style="font-size:12px;margin-top:6px">${i("cal", "width:13px;height:13px;vertical-align:-2px")} bis ${fmtDate(p.due_date)}</div>` : ""}</a>`;
+    ${p?.due_date || p?.recurrence?.unit ? `<div class="muted" style="font-size:12px;margin-top:6px;display:flex;gap:12px;flex-wrap:wrap">${p.due_date ? `<span>${i("cal", "width:13px;height:13px;vertical-align:-2px")} bis ${fmtDate(p.due_date)}</span>` : ""}${p.recurrence?.unit ? `<span>${i("repeat", "width:13px;height:13px;vertical-align:-2px")} ${esc(recText(p.recurrence))}</span>` : ""}</div>` : ""}</a>`;
 }
 /** Handy: Umschalter zwischen Projektliste und Kalender oben auf beiden Seiten */
 const projSwitch = (cur) => `<div class="seg mswitch">
@@ -448,6 +506,7 @@ function vProject(id) {
   const l = st.tasksOfProject(id), g = st.progress(l);
   const open = l.filter((t) => t.status !== "done"), done = l.filter((t) => t.status === "done");
   const canP = p && (st.isAdmin() || p.owner_id === S.me || p.created_by === S.me);
+  const nextP = p?.next_project_id ? st.project(p.next_project_id) : null;
   const list = projTab === "open" ? taskList(open, { project: false, empty: "Keine offenen Aufgaben." })
     : projTab === "done" ? taskList(done, { project: false, group: false, empty: "Noch nichts erledigt." })
     : taskList(st.sortTasks(l), { project: false, group: false });
@@ -461,7 +520,9 @@ function vProject(id) {
         <div><span class="muted">Erledigt:</span> ${g.done} von ${g.total}</div>
         ${p ? `<div style="display:flex;gap:6px;align-items:center"><span class="muted">Verantwortlich:</span> ${p.owner_id ? avatar(p.owner_id) + " " + esc(st.profile(p.owner_id)?.name || "") : "–"}</div>
         ${p.start_date ? `<div><span class="muted">Beginn:</span> ${fmtDate(p.start_date)}</div>` : ""}
-        <div><span class="muted">Enddatum:</span> ${p.due_date ? fmtDate(p.due_date) : "–"}</div>` : `<div class="muted">Aufgaben ohne Projekt</div>`}
+        <div><span class="muted">Enddatum:</span> ${p.due_date ? fmtDate(p.due_date) : "–"}</div>
+        ${p.recurrence?.unit ? `<div><span class="muted">Wiederholung:</span> ${esc(recText(p.recurrence))}</div>` : ""}
+        ${nextP ? `<div><span class="muted">Nächste Runde:</span> <a href="#/projekt/${nextP.id}">${nextP.due_date ? "bis " + fmtDate(nextP.due_date) : "öffnen"}</a></div>` : ""}` : `<div class="muted">Aufgaben ohne Projekt</div>`}
       </div></div>${p?.description ? `<div class="desc">${esc(p.description)}</div>` : ""}</div>
       <div style="margin-bottom:10px">${seg([["open", `Offen · ${open.length}`], ["done", `Erledigt · ${done.length}`], ["all", "Alle"]], projTab, "pt")}</div>
       <div class="card list-cards">${list}</div>`,
@@ -471,8 +532,16 @@ function vProject(id) {
       r.querySelector("#pcal").onclick = () => { calF.proj = id; calF.anchor = null; location.hash = "#/kalender"; };
       const pe = r.querySelector("#pe"); if (pe) pe.onclick = () => openProjectForm(p);
       const pa = r.querySelector("#pa"); if (pa) pa.onclick = async () => {
-        if (!p.archived && open.length && !confirm(`Es sind noch ${open.length} Aufgaben offen. Trotzdem archivieren?`)) return;
-        await st.archiveProject(p.id, !p.archived); toast(p.archived ? "Wiederhergestellt" : "Archiviert");
+        const rec = !p.archived && p.recurrence?.unit && !p.next_project_id;
+        if (rec && !confirm(`Projekt archivieren?\n\nDas Projekt wiederholt sich (${recText(p.recurrence)}). Die nächste Runde wird mit allen Aufgaben neu angelegt – Termine verschoben, alles wieder offen.`
+          + (open.length ? `\n\nHinweis: Es sind noch ${open.length} Aufgaben offen.` : ""))) return;
+        if (!rec && !p.archived && open.length && !confirm(`Es sind noch ${open.length} Aufgaben offen. Trotzdem archivieren?`)) return;
+        try {
+          await st.archiveProject(p.id, !p.archived);
+          const np = rec && st.project(p.id)?.next_project_id && st.project(st.project(p.id).next_project_id);
+          if (np) { toast(`Archiviert – nächste Runde ${np.due_date ? "bis " + fmtDate(np.due_date) : ""} angelegt`); location.hash = "#/projekt/" + np.id; }
+          else toast(p.archived ? "Wiederhergestellt" : rec ? "Archiviert – die Wiederholung ist abgelaufen" : "Archiviert");
+        } catch (er) { toast(er.message); }
       };
     },
   };
@@ -483,6 +552,7 @@ function vTask(id) {
   if (!t) return { title: "Aufgabe", back: "#/aufgaben", html: `<div class="empty">Aufgabe nicht gefunden oder gelöscht.</div>`, noFab: true };
   const p = t.project_id ? st.project(t.project_id) : null;
   const ck = st.checklistOf(id), cm = st.commentsOf(id), can = st.canEdit(t);
+  const nextT = t.next_task_id ? st.task(t.next_task_id) : null;
   const due = fmtDue(t.due_date);
   const reviewBox = t.status === "review"
     ? (t.created_by === S.me
@@ -513,6 +583,8 @@ function vTask(id) {
           <span class="k">Projekt</span><span>${p ? `<a href="#/projekt/${p.id}">${esc(p.name)}</a>` : "Allgemein"}</span>
           ${t.start_date ? `<span class="k">Beginn</span><span>${fmtDate(t.start_date)}</span>` : ""}
           <span class="k">Frist</span><span class="${due.over && t.status !== "done" ? "over" : ""}">${t.due_date ? fmtDate(t.due_date) + (due.today ? " (heute)" : "") : "–"}</span>
+          ${t.recurrence?.unit ? `<span class="k">Wiederholung</span><span style="display:flex;gap:6px;align-items:center">${i("repeat", "width:15px;height:15px")}${esc(recText(t.recurrence))}</span>` : ""}
+          ${nextT ? `<span class="k">Nächste Runde</span><span><a href="#/aufgabe/${nextT.id}">${nextT.due_date ? "fällig am " + fmtDate(nextT.due_date) : "öffnen"}</a></span>` : ""}
           <span class="k">Priorität</span><span style="display:flex;gap:6px;align-items:center"><span class="prio p${t.priority}"></span>${PRIO[t.priority]}</span>
           <span class="k">Zuständig</span><span style="display:flex;flex-direction:column;gap:4px">${st.assigneesOf(id).map((u) => `<span style="display:flex;gap:6px;align-items:center">${avatar(u)}${esc(st.profile(u)?.name || "")}</span>`).join("") || "–"}</span>
           <span class="k">Erstellt von</span><span>${esc(st.profile(t.created_by)?.name || "–")}</span>
@@ -526,7 +598,7 @@ function vTask(id) {
       bindList(r);
       const q = (s) => r.querySelector(s);
       if (q("#ed")) q("#ed").onclick = () => openTaskForm(t);
-      if (q("#ap")) q("#ap").onclick = async () => { await st.setStatus(id, "done"); toast("Bestätigt ✓"); };
+      if (q("#ap")) q("#ap").onclick = async () => { await st.setStatus(id, "done"); toast("Bestätigt ✓" + nextInfo(id)); };
       if (q("#rj")) q("#rj").onclick = async () => {
         const why = prompt("Was fehlt noch? (optional)");
         if (why === null) return;
@@ -542,7 +614,7 @@ function vTask(id) {
         if (!confirm("Aufgabe endgültig löschen?")) return;
         await st.deleteTask(id); toast("Gelöscht"); location.hash = p ? `#/projekt/${p.id}` : "#/aufgaben";
       };
-      const ACT = { created: "angelegt", done: "abgehakt", review: "erledigt, zur Prüfung", approved: "bestätigt", reopened: "wieder geöffnet" };
+      const ACT = { created: "angelegt", done: "abgehakt", review: "erledigt, zur Prüfung", approved: "bestätigt", reopened: "wieder geöffnet", repeated: "die Wiederholung angelegt (automatisch)" };
       st.taskEvents(id).then((ev) => {
         const el = q("#log"); if (!el) return;
         el.innerHTML = ev.map((e) => `<div class="log">${fmtTime(e.created_at)} – ${esc(st.profile(e.user_id)?.name || "System")} hat ${ACT[e.action] || e.action}</div>`).join("") || "–";
@@ -970,7 +1042,8 @@ function modal(title, body, foot, onMount) {
 
 function openTaskForm(t, preset = {}) {
   const edit = !!t;
-  const d = t || { title: preset.title || "", description: preset.description || "", project_id: preset.project_id || "", start_date: preset.start_date || "", due_date: preset.due_date || "", priority: preset.priority || 2, needs_approval: false };
+  const d = t || { title: preset.title || "", description: preset.description || "", project_id: preset.project_id || "", start_date: preset.start_date || "", due_date: preset.due_date || "", priority: preset.priority || 2, needs_approval: false, recurrence: null };
+  const nextT = edit && t.next_task_id ? st.task(t.next_task_id) : null;
   const ass = edit ? st.assigneesOf(t.id) : [S.me];
   const projs = st.activeProjects();
   if (d.project_id && !projs.find((p) => p.id === d.project_id)) { const pp = st.project(d.project_id); if (pp) projs.push(pp); }
@@ -984,12 +1057,15 @@ function openTaskForm(t, preset = {}) {
       ${S.hasStart ? `<div class="field"><label>Beginn (optional, für den Kalender)</label><input type="date" name="start_date" value="${d.start_date || ""}"></div>` : ""}
       <div class="field"><label>Frist</label><input type="date" name="due_date" value="${d.due_date || ""}"></div>
     </div>
+    ${S.hasRec ? recFields(d.recurrence, "task") : ""}
+    ${nextT ? `<div class="muted" style="font-size:12px;margin:-6px 0 14px">Die nächste Runde (fällig am ${fmtDate(nextT.due_date)}) ist schon angelegt – Änderungen für künftige Runden bitte dort vornehmen.</div>` : ""}
     <div class="field"><label>Priorität</label><div class="pick">${[1, 2, 3].map((p) => `<label><input type="radio" name="priority" value="${p}" ${p === d.priority ? "checked" : ""}><span class="prio p${p}" style="margin-left:6px"></span>${PRIO[p]}</label>`).join("")}</div></div>
     <div class="field"><label>Zuständig</label><div class="pick">${st.activeProfiles().map((p) => `<label><input type="checkbox" name="ass" value="${p.id}" ${ass.includes(p.id) ? "checked" : ""}>${avatar(p.id)}${esc(p.name)}</label>`).join("")}</div></div>
     ${edit ? "" : `<div class="field"><label>Checkliste (ein Punkt pro Zeile, optional)</label><textarea name="ck" style="min-height:70px"></textarea></div>`}
     <label class="check"><input type="checkbox" name="needs_approval" ${d.needs_approval ? "checked" : ""}> Erledigung muss von mir bestätigt werden</label>`,
     `<button type="button" class="btn" data-close>Abbrechen</button><button class="btn red" id="sv">${edit ? "Speichern" : "Anlegen"}</button>`,
     (f, close) => {
+      bindRec(f);
       f.onsubmit = async (e) => {
         e.preventDefault();
         const fe = f.querySelector("#fe");
@@ -998,10 +1074,14 @@ function openTaskForm(t, preset = {}) {
           due_date: f.due_date.value, priority: Number(f.priority.value), needs_approval: f.needs_approval.checked,
           start_date: f.start_date ? f.start_date.value : "",
         };
+        const rec = readRec(f, d.recurrence, data.due_date === (d.due_date || ""));
+        if (rec !== undefined) data.recurrence = rec;
         const a = [...f.querySelectorAll("[name=ass]:checked")].map((x) => x.value);
         if (!data.title) { fe.textContent = "Bitte einen Titel eingeben."; return fe.classList.remove("hidden"); }
         if (!a.length) { fe.textContent = "Bitte mindestens eine Person zuweisen."; return fe.classList.remove("hidden"); }
         if (data.start_date && data.due_date && data.start_date > data.due_date) { fe.textContent = "Der Beginn liegt nach der Frist."; return fe.classList.remove("hidden"); }
+        if (rec && !data.due_date) { fe.textContent = "Für eine Wiederholung braucht die Aufgabe eine Frist."; return fe.classList.remove("hidden"); }
+        if (rec?.until && rec.until < data.due_date) { fe.textContent = "„Wiederholen bis“ liegt vor der Frist."; return fe.classList.remove("hidden"); }
         const b = f.querySelector("#sv"); b.disabled = true;
         try {
           if (edit) { await st.updateTask(t.id, data, a); toast("Gespeichert"); close(); }
@@ -1080,7 +1160,7 @@ function openIdeaForm(x) {
 
 function openProjectForm(p, preset = {}) {
   const edit = !!p;
-  const d = p || { name: preset.name || "", description: preset.description || "", owner_id: S.me, start_date: "", due_date: "" };
+  const d = p || { name: preset.name || "", description: preset.description || "", owner_id: S.me, start_date: "", due_date: "", recurrence: null };
   modal(edit ? "Projekt bearbeiten" : preset.idea_id ? "Idee als Projekt übernehmen" : "Neues Projekt", `
     <div class="err hidden" id="fe"></div>
     <div class="field"><label>Name *</label><input name="name" value="${esc(d.name)}" maxlength="120" required></div>
@@ -1090,17 +1170,24 @@ function openProjectForm(p, preset = {}) {
     <div class="row2">
       ${S.hasStart ? `<div class="field"><label>Beginn (optional)</label><input type="date" name="start_date" value="${d.start_date || ""}"></div>` : ""}
       <div class="field"><label>Enddatum</label><input type="date" name="due_date" value="${d.due_date || ""}"></div>
-    </div>`,
+    </div>
+    ${S.hasRec ? recFields(d.recurrence, "project") : ""}
+    ${edit && p.next_project_id ? `<div class="muted" style="font-size:12px;margin:-6px 0 14px">Die nächste Runde ist schon angelegt – Änderungen für künftige Runden bitte dort vornehmen.</div>` : ""}`,
     `${edit && (st.isAdmin() || p.created_by === S.me) ? `<button type="button" class="btn danger" id="pd" style="margin-right:auto">${i("trash")}Löschen</button>` : ""}
      <button type="button" class="btn" data-close>Abbrechen</button><button class="btn red" id="sv">${edit ? "Speichern" : "Anlegen"}</button>`,
     (f, close) => {
+      bindRec(f);
       f.onsubmit = async (e) => {
         e.preventDefault();
         const data = { name: f.name.value.trim(), description: f.description.value.trim() || null, owner_id: f.owner_id.value || null, due_date: f.due_date.value || null };
         if (f.start_date) data.start_date = f.start_date.value || null;
+        const rec = readRec(f, d.recurrence, (data.due_date || "") === (d.due_date || ""));
+        if (rec !== undefined) data.recurrence = rec;
         const fe = f.querySelector("#fe");
         if (!data.name) { fe.textContent = "Bitte einen Namen eingeben."; return fe.classList.remove("hidden"); }
         if (data.start_date && data.due_date && data.start_date > data.due_date) { fe.textContent = "Der Beginn liegt nach dem Enddatum."; return fe.classList.remove("hidden"); }
+        if (rec && !data.due_date) { fe.textContent = "Für eine Wiederholung braucht das Projekt ein Enddatum."; return fe.classList.remove("hidden"); }
+        if (rec?.until && rec.until < data.due_date) { fe.textContent = "„Wiederholen bis“ liegt vor dem Enddatum."; return fe.classList.remove("hidden"); }
         try {
           if (edit) { await st.updateProject(p.id, data); toast("Gespeichert"); close(); }
           else {

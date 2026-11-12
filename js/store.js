@@ -7,6 +7,7 @@ export const S = {
   profiles: [], projects: [], tasks: [], assignees: [], checklist: [], comments: [], notifications: [], ideas: [],
   ideasMissing: false, loaded: false,
   hasStart: true, hasRating: true, // neue Spalten aus 05_prioritaet_kalender.sql vorhanden?
+  hasRec: true, // Wiederholung aus 06_wiederholung.sql vorhanden?
 };
 const listeners = new Set();
 export const onChange = (fn) => listeners.add(fn);
@@ -18,7 +19,7 @@ function check({ data, error }) {
 }
 
 export async function loadAll() {
-  const [pr, pj, tk, as, ck, cm, nt, id, ps, pi] = await Promise.all([
+  const [pr, pj, tk, as, ck, cm, nt, id, ps, pi, rc] = await Promise.all([
     sb.from("profiles").select("*").order("name"),
     sb.from("projects").select("*").order("created_at"),
     sb.from("tasks").select("*"),
@@ -30,13 +31,15 @@ export async function loadAll() {
     // Prüfen, ob 05_prioritaet_kalender.sql schon eingespielt ist (sonst laufen Speichern und Anzeige ohne die neuen Felder)
     sb.from("tasks").select("start_date").limit(1),
     sb.from("ideas").select("priority").limit(1),
+    // Prüfen, ob 06_wiederholung.sql schon eingespielt ist
+    sb.from("projects").select("recurrence,next_project_id").limit(1),
   ]);
   S.profiles = check(pr) || []; S.projects = check(pj) || []; S.tasks = check(tk) || [];
   S.assignees = check(as) || []; S.checklist = check(ck) || []; S.comments = check(cm) || [];
   S.notifications = check(nt) || [];
   // Ideen: fehlt die Tabelle noch (SQL 03 nicht ausgeführt), läuft der Rest der App trotzdem
   S.ideasMissing = !!id.error; S.ideas = id.error ? [] : id.data || [];
-  S.hasStart = !ps.error; S.hasRating = !id.error && !pi.error;
+  S.hasStart = !ps.error; S.hasRating = !id.error && !pi.error; S.hasRec = !rc.error;
   S.profile = S.profiles.find((p) => p.id === S.me) || S.profile;
   S.loaded = true;
   emit();
@@ -120,6 +123,7 @@ function taskFields(data) {
     due_date: data.due_date || null, priority: data.priority || 2, needs_approval: !!data.needs_approval,
   };
   if (S.hasStart) r.start_date = data.start_date || null;
+  if (S.hasRec && "recurrence" in data) r.recurrence = data.recurrence || null;
   return r;
 }
 export async function createTask(data, assignees, checklist) {
@@ -171,11 +175,13 @@ export async function taskEvents(tid) {
 export async function createProject(d) {
   const row = { name: d.name, description: d.description || null, owner_id: d.owner_id || null, due_date: d.due_date || null };
   if (S.hasStart) row.start_date = d.start_date || null;
+  if (S.hasRec) row.recurrence = d.recurrence || null;
   const p = check(await sb.from("projects").insert(row).select().single());
   await loadAll(); return p;
 }
 export async function updateProject(id, d) {
   if (!S.hasStart) { d = { ...d }; delete d.start_date; }
+  if (!S.hasRec) { d = { ...d }; delete d.recurrence; }
   check(await sb.from("projects").update(d).eq("id", id)); await loadAll(); }
 export async function archiveProject(id, on) { await updateProject(id, { archived: on, archived_at: on ? new Date().toISOString() : null }); }
 export async function deleteProject(id) { check(await sb.from("projects").delete().eq("id", id)); await loadAll(); }

@@ -5,6 +5,10 @@
 // was sie jetzt tun können, nicht was technisch geändert wurde.
 // Fassungen ohne sichtbare Änderung bekommen keinen Eintrag.
 export const NEUERUNGEN = [
+  { fassung: "1.0.29", datum: "12.11.2026", punkte: [
+    "Aufgaben können sich jetzt wiederholen – z. B. wöchentlich, monatlich oder jährlich. Einstellen beim Anlegen oder Bearbeiten unter „Wiederholen“. Beim Abhaken legt die App die nächste Aufgabe mit neuer Frist automatisch an.",
+    "Auch Projekte lassen sich wiederholen: Beim Archivieren entsteht die nächste Runde mit allen Aufgaben – Termine verschoben, alles wieder offen.",
+  ] },
   { fassung: "1.0.28", datum: "12.11.2026", punkte: [
     "Am Handy ist der Kalender jetzt unter „Projekte“ zu finden: oben zwischen „Liste“ und „Kalender“ umschalten.",
   ] },
