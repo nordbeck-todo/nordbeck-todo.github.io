@@ -5,6 +5,10 @@
 // was sie jetzt tun können, nicht was technisch geändert wurde.
 // Fassungen ohne sichtbare Änderung bekommen keinen Eintrag.
 export const NEUERUNGEN = [
+  { fassung: "1.0.31", datum: "12.11.2026", punkte: [
+    "Der Umschalter „Eigene anzeigen / Alle anzeigen / Person“ gilt jetzt für die ganze App: Übersicht, Aufgaben, Projekte, Kalender, Ideen, Zur Prüfung und Archiv. Am PC steht er oben neben „+ Neu“, am Handy unter dem Seitentitel.",
+    "Bei „Eigene“ siehst du unter Projekte nur die Projekte, die du verantwortest, angelegt hast oder in denen du Aufgaben hast. Was ausgeblendet ist, steht unten als Hinweis.",
+  ] },
   { fassung: "1.0.30", datum: "12.11.2026", punkte: [
     "„Meine Aufgaben“ und „Alle Aufgaben“ sind jetzt eine Seite „Aufgaben“. Oben umschalten zwischen „Eigene anzeigen“, „Alle anzeigen“ oder den Aufgaben einer bestimmten Person – wie in HERO. Die Auswahl merkt sich die App.",
   ] },

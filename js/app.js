@@ -118,6 +118,46 @@ function renderSetPassword() {
 }
 
 // =====================================================================
+// Globaler Umschalter wie in HERO: „Eigene anzeigen“ / „Alle anzeigen“ / eine Person (ab v1.0.31)
+// Gilt für Übersicht, Aufgaben, Projekte, Kalender, Ideen, Zur Prüfung und Archiv; bleibt pro Gerät gespeichert.
+// =====================================================================
+const WHO = { v: (() => { try { return localStorage.getItem("taskWho") || "me"; } catch (_) { return "me"; } })() };
+function setWho(w) { WHO.v = w; try { localStorage.setItem("taskWho", w); } catch (_) { /* */ } }
+/** Ausgewählte Person (id) oder null bei „Alle anzeigen“; unbekannte/gesperrte Person fällt auf „Eigene“ zurück */
+function whoId() {
+  if (WHO.v === "all") return null;
+  if (WHO.v !== "me" && !st.activeProfiles().some((p) => p.id === WHO.v && p.id !== S.me)) WHO.v = "me";
+  return WHO.v === "me" ? S.me : WHO.v;
+}
+const whoAll = () => whoId() === null;
+const whoMe = () => whoId() === S.me;
+const whoFirst = () => (st.profile(whoId())?.name || "").split(" ")[0];
+/** Aufgabe gehört zur Auswahl: zuständig – oder Ersteller einer Aufgabe, die auf seine Bestätigung wartet */
+function whoTask(t) {
+  const u = whoId();
+  return !u || st.assigneesOf(t.id).includes(u) || (t.created_by === u && t.status === "review");
+}
+/** Projekt gehört zur Auswahl: verantwortlich, angelegt oder mindestens eine Aufgabe darin */
+function whoProject(p) {
+  const u = whoId();
+  if (!u) return true;
+  if (!p) return st.tasksOfProject("allgemein").some(whoTask);
+  return p.owner_id === u || p.created_by === u || st.tasksOfProject(p.id).some(whoTask);
+}
+function whoSelect(id) {
+  const others = st.activeProfiles().filter((p) => p.id !== S.me);
+  const cur = whoAll() ? "all" : whoMe() ? "me" : WHO.v;
+  const opt = (v, l) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`;
+  return `<select class="inp whosel" id="${id}" data-who aria-label="Wessen Aufgaben und Projekte">${opt("me", "Eigene anzeigen")}${opt("all", "Alle anzeigen")}
+    ${others.length ? `<optgroup label="Person">${others.map((p) => opt(p.id, p.name)).join("")}</optgroup>` : ""}</select>`;
+}
+/** Hinweis, wenn durch die Auswahl etwas ausgeblendet ist */
+function whoHidden(n, what) {
+  if (!n || whoAll()) return "";
+  return `<p class="muted whohint">${n} ${what} anderer ${n === 1 ? "ist" : "sind"} ausgeblendet – oben „Alle anzeigen“ wählen.</p>`;
+}
+
+// =====================================================================
 // Grundgerüst
 // =====================================================================
 const NAV = [
@@ -137,6 +177,7 @@ function shell() {
   </aside>
   <header class="top">
     <form class="search" id="ts">${i("search")}<input placeholder="Aufgaben und Projekte durchsuchen …" name="q"></form>
+    <span id="twho" class="twho"></span>
     <button class="btn red" data-newmenu aria-haspopup="menu">${i("plus")}Neu</button>
     <a class="iconbtn" href="#/mitteilungen" title="Benachrichtigungen">${i("bell")}<span class="badge hidden" id="tbadge"></span></a>
     <a href="#/einstellungen" title="Einstellungen" id="tav"></a>
@@ -154,6 +195,7 @@ function shell() {
   for (const id of ["ss", "ts"]) document.getElementById(id).onsubmit = (e) => {
     e.preventDefault(); const q = e.target.q.value.trim(); if (q) location.hash = "#/suche/" + encodeURIComponent(q);
   };
+  $app.addEventListener("change", (e) => { if (e.target.matches("[data-who]")) { setWho(e.target.value); route(); } });
   $app.addEventListener("click", (e) => {
     const m = e.target.closest("[data-newmenu]");
     if (m) { e.preventDefault(); return toggleNewMenu(m); }
@@ -211,12 +253,13 @@ function updateChrome(path, v) {
   const u = st.unreadCount();
   const tb = document.getElementById("tbadge"); tb.textContent = u; tb.classList.toggle("hidden", !u);
   document.getElementById("tav").innerHTML = avatar(S.me, "lg");
+  const tw = document.getElementById("twho"); tw.innerHTML = v.who ? whoSelect("whoPc") : ""; tw.classList.toggle("off", !v.who);
   // Handy
   const bell = `<a class="bell" href="#/mitteilungen" aria-label="Benachrichtigungen">${i("bell", "width:22px;height:22px")}${u ? `<span class="badge">${u}</span>` : ""}</a>`;
   document.getElementById("mhead").innerHTML = `
     <div class="mrow"><span class="mside">${v.back ? `<a class="back" href="${v.back}" aria-label="Zurück">${i("back", "width:22px;height:22px")}</a>` : ""}</span>
       <a href="#/" class="mlogo"><img src="img/logo.png" alt="Tischlermeister Nordbeck"></a><span class="mside r">${bell}</span></div>
-    <div class="mtitle">${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ""}<div class="ptitle">${esc(v.title)}</div></div>`;
+    <div class="mtitle">${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ""}<div class="ptitle">${esc(v.title)}</div>${v.who ? `<div class="mwho">${whoSelect("whoM")}</div>` : ""}</div>`;
   const mn = [["#/", "home", "Übersicht", ""], ["#/aufgaben", "check", "Aufgaben", "aufgaben"], ["#/projekte", "folder", "Projekte", "projekt"], ["#/ideen", "bulb", "Ideen", "ideen"], ["#/mehr", "more", "Mehr", "mehr"]];
   const moreKeys = ["pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
   const w = st.waitingForMe().length;
@@ -235,7 +278,7 @@ function updateChrome(path, v) {
 // Router
 // =====================================================================
 const ROUTES = [
-  [/^$/, vDashboard], [/^aufgaben(?:\/(alle|eigene))?$/, vTasks], [/^alle$/, () => vTasks("alle")], [/^projekte$/, vProjects], [/^projekt\/([^/]+)$/, vProject],
+  [/^$/, vDashboard], [/^aufgaben(?:\/(alle|eigene|offen))?$/, vTasks], [/^alle$/, () => vTasks("alle")], [/^projekte$/, vProjects], [/^projekt\/([^/]+)$/, vProject],
   [/^aufgabe\/([^/]+)$/, vTask], [/^pruefung$/, vReview], [/^archiv$/, vArchive], [/^mitteilungen$/, vNotifications],
   [/^ideen$/, vIdeas], [/^kalender$/, vCalendar], [/^nutzer$/, vUsers], [/^einstellungen$/, vSettings], [/^mehr$/, vMore], [/^suche\/(.+)$/, vSearch],
 ];
@@ -397,36 +440,38 @@ function bindPushNote(root) {
 }
 
 function vDashboard() {
-  const mine = st.myOpen();
+  const u = whoId(), me = whoMe(), nm = whoFirst();
+  const mine = S.tasks.filter((t) => t.status === "open" && !st.archivedTask(t) && (!u || st.assigneesOf(t.id).includes(u)));
   const over = mine.filter((t) => daysUntil(t.due_date) < 0).length;
   const today = mine.filter((t) => daysUntil(t.due_date) === 0);
-  const wait = st.waitingForMe();
-  const projs = st.activeProjects();
+  const wait = S.tasks.filter((t) => t.status === "review" && !st.archivedTask(t) && (!u || t.created_by === u));
+  const projs = st.activeProjects().filter(whoProject);
   const avg = projs.length ? Math.round(projs.reduce((s, p) => s + st.progress(st.tasksOfProject(p.id)).pct, 0) / projs.length) : 0;
   const first = (S.profile?.name || "").split(" ")[0];
   const stat = (h, ic, t, n, s, red) => `<a class="card stat" href="${h}"><div class="t">${i(ic)}${t}</div>
     <div class="n" style="${red ? "color:var(--accent)" : ""}">${n}</div><div class="s ${red ? "over" : ""}">${s}</div></a>`;
-  const prows = [...projs.map((p) => [p, st.tasksOfProject(p.id)]), [null, st.tasksOfProject("allgemein").filter((t) => true)]]
+  const prows = [...projs.map((p) => [p, st.tasksOfProject(p.id)]), ...(whoProject(null) ? [[null, st.tasksOfProject("allgemein")]] : [])]
     .filter(([p, l]) => p || l.length)
     .map(([p, l]) => {
       const g = st.progress(l);
       return `<a class="prow" href="#/projekt/${p ? p.id : "allgemein"}"><div class="a"><span>${esc(p ? p.name : "Allgemein")}</span><span>${g.pct} %</span></div>
         <div class="bar"><div style="width:${g.pct}%"></div></div>
         <div class="b"><span style="display:flex;gap:6px;align-items:center">${p ? (p.owner_id ? avatar(p.owner_id) : "") + (p.due_date ? ` bis ${fmtDate(p.due_date)}` : "") : "Aufgaben ohne Projekt"}</span><span>${g.done} von ${g.total} erledigt</span></div></a>`;
-    }).join("") || `<div class="empty">Noch keine Projekte.</div>`;
+    }).join("") || `<div class="empty">${u ? "Keine Projekte in dieser Auswahl." : "Noch keine Projekte."}</div>`;
+  const tasksT = me ? "Meine Aufgaben" : u ? `Aufgaben von ${nm}` : "Alle offenen Aufgaben";
   return {
-    title: "Übersicht",
+    title: "Übersicht", who: true,
     html: `<div class="page-h"><div><h1 style="display:block">${greeting()}${first ? ", " + esc(first) : ""}</h1><div class="muted">${longDate()}</div></div></div>
       ${pushNote()}
       <div class="stats">
-        ${stat("#/aufgaben/eigene", "check", "Meine offenen Aufgaben", mine.length, over ? `davon ${over} überfällig` : "nichts überfällig", over > 0)}
-        ${stat("#/aufgaben/eigene", "cal", "Heute fällig", today.length, today.map((t) => t.title).join(", ").slice(0, 60) || "–")}
-        ${stat("#/pruefung", "eye", "Zur Prüfung", wait.length, wait.length ? "wartet auf deine Bestätigung" : "nichts offen")}
-        ${stat("#/projekte", "folder", "Aktive Projekte", projs.length, projs.length ? `Ø ${avg} % erledigt` : "–")}
+        ${stat("#/aufgaben/offen", "check", me ? "Meine offenen Aufgaben" : u ? `Offene Aufgaben von ${esc(nm)}` : "Offene Aufgaben (alle)", mine.length, over ? `davon ${over} überfällig` : "nichts überfällig", over > 0)}
+        ${stat("#/aufgaben/offen", "cal", "Heute fällig", today.length, today.map((t) => t.title).join(", ").slice(0, 60) || "–")}
+        ${stat("#/pruefung", "eye", "Zur Prüfung", wait.length, wait.length ? (me ? "wartet auf deine Bestätigung" : u ? `wartet auf Bestätigung von ${esc(nm)}` : "wartet auf Bestätigung") : "nichts offen")}
+        ${stat("#/projekte", "folder", me ? "Meine Projekte" : u ? `Projekte von ${esc(nm)}` : "Aktive Projekte", projs.length, projs.length ? `Ø ${avg} % erledigt` : "–")}
       </div>
       <div class="cols">
-        <div class="card list-cards-m"><div class="card-h"><h3>Meine Aufgaben</h3><a class="btn sm" href="#/aufgaben/eigene">Zur Liste</a></div>
-          ${taskList(st.sortTasks(mine).slice(0, 8), { group: false, empty: "Keine offenen Aufgaben – sehr gut!" })}
+        <div class="card list-cards-m"><div class="card-h"><h3>${esc(tasksT)}</h3><a class="btn sm" href="#/aufgaben/offen">Zur Liste</a></div>
+          ${taskList(st.sortTasks(mine).slice(0, 8), { group: false, empty: me ? "Keine offenen Aufgaben – sehr gut!" : "Keine offenen Aufgaben." })}
           <div class="card-f"><a href="#" data-new>+ Aufgabe hinzufügen</a></div></div>
         <div class="card"><div class="card-h"><h3>Projekte</h3><button class="btn sm" id="np">${i("plus", "width:14px;height:14px")}Projekt</button></div>
           <div style="padding:0 18px 6px">${prows}</div></div>
@@ -435,48 +480,34 @@ function vDashboard() {
   };
 }
 
-// Aufgaben: eine Liste mit Umschalter wie in HERO – „Eigene anzeigen“, „Alle anzeigen“ oder eine bestimmte Person.
-// Auswahl bleibt pro Gerät gespeichert; Links mit #/aufgaben/eigene bzw. #/aufgaben/alle setzen sie gezielt.
-const taskF = {
-  who: (() => { try { return localStorage.getItem("taskWho") || "me"; } catch (_) { return "me"; } })(),
-  proj: "", tab: "open",
-};
-function setTaskWho(w) { taskF.who = w; try { localStorage.setItem("taskWho", w); } catch (_) { /* */ } }
+// Aufgaben: eine Liste; wessen Aufgaben, bestimmt der globale Umschalter oben (WHO)
+// #/aufgaben/offen springt auf „Offen“, #/aufgaben/eigene bzw. #/aufgaben/alle (alte Adresse #/alle) setzen zusätzlich die Auswahl
+const taskF = { proj: "", tab: "open" };
 function vTasks(pre) {
   if (pre) {
-    setTaskWho(pre === "alle" ? "all" : "me"); taskF.tab = "open"; taskF.proj = "";
+    if (pre !== "offen") setWho(pre === "alle" ? "all" : "me");
+    taskF.tab = "open"; taskF.proj = "";
     history.replaceState(null, "", "#/aufgaben"); // Vorgabe nur einmal anwenden, danach gilt der Umschalter
   }
-  const others = st.activeProfiles().filter((p) => p.id !== S.me);
-  if (!["me", "all"].includes(taskF.who) && !others.some((p) => p.id === taskF.who)) taskF.who = "me";
   if (taskF.proj && taskF.proj !== "allgemein" && !st.activeProjects().some((p) => p.id === taskF.proj)) taskF.proj = "";
-  const uid = taskF.who === "me" ? S.me : taskF.who === "all" ? null : taskF.who;
-  let base = S.tasks.filter((t) => !st.archivedTask(t));
-  // Person: zuständig – oder Ersteller einer Aufgabe, die auf ihre Bestätigung wartet
-  if (uid) base = base.filter((t) => st.assigneesOf(t.id).includes(uid) || (t.created_by === uid && t.status === "review"));
+  let base = S.tasks.filter((t) => !st.archivedTask(t) && whoTask(t));
   if (taskF.proj) base = base.filter((t) => (taskF.proj === "allgemein" ? !t.project_id : t.project_id === taskF.proj));
   const open = base.filter((t) => t.status === "open"), rev = base.filter((t) => t.status === "review");
   const done = base.filter((t) => t.status === "done").sort((a, b) => (b.done_at || "").localeCompare(a.done_at || "")).slice(0, 100);
-  const mine = taskF.who === "me";
-  const list = taskF.tab === "open" ? taskList(open, { empty: mine ? "Keine offenen Aufgaben – sehr gut!" : "Keine offenen Aufgaben." })
+  const me = whoMe();
+  const list = taskF.tab === "open" ? taskList(open, { empty: me ? "Keine offenen Aufgaben – sehr gut!" : "Keine offenen Aufgaben." })
     : taskF.tab === "review" ? taskList(rev, { group: false, empty: "Nichts zur Prüfung." })
     : taskList(done, { group: false, empty: "Noch nichts erledigt." });
-  const who = others.find((p) => p.id === taskF.who);
-  const title = mine ? "Meine Aufgaben" : who ? `Aufgaben von ${who.name.split(" ")[0]}` : "Alle Aufgaben";
+  const title = me ? "Meine Aufgaben" : whoAll() ? "Alle Aufgaben" : `Aufgaben von ${whoFirst()}`;
   const opt = (v, l, cur) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`;
   return {
-    title,
+    title, who: true,
     html: `<div class="page-h"><h1>${esc(title)}</h1>
-        <div class="tfil">
-          <select class="inp" id="fw" aria-label="Wessen Aufgaben">${opt("me", "Eigene anzeigen", taskF.who)}${opt("all", "Alle anzeigen", taskF.who)}
-            ${others.length ? `<optgroup label="Person">${others.map((p) => opt(p.id, p.name, taskF.who)).join("")}</optgroup>` : ""}</select>
-          <select class="inp" id="fp" aria-label="Projekt">${opt("", "Alle Projekte", taskF.proj)}${opt("allgemein", "Allgemein", taskF.proj)}${st.activeProjects().map((p) => opt(p.id, p.name, taskF.proj)).join("")}</select>
-        </div></div>
+        <div class="tfil"><select class="inp" id="fp" aria-label="Projekt">${opt("", "Alle Projekte", taskF.proj)}${opt("allgemein", "Allgemein", taskF.proj)}${st.activeProjects().map((p) => opt(p.id, p.name, taskF.proj)).join("")}</select></div></div>
       <div class="ttabs">${seg([["open", `Offen · ${open.length}`], ["review", `Zur Prüfung · ${rev.length}`], ["done", "Erledigt"]], taskF.tab, "tab")}</div>
       <div class="card list-cards">${list}</div>`,
     after(r) {
       bindList(r);
-      r.querySelector("#fw").onchange = (e) => { setTaskWho(e.target.value); route(); };
       r.querySelector("#fp").onchange = (e) => { taskF.proj = e.target.value; route(); };
       r.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { taskF.tab = b.dataset.tab; route(); });
     },
@@ -498,10 +529,14 @@ const projSwitch = (cur) => `<div class="seg mswitch">
   <a class="btn${cur === "list" ? " red" : ""}" href="#/projekte">${i("folder")}Liste</a>
   <a class="btn${cur === "cal" ? " red" : ""}" href="#/kalender">${i("cal")}Kalender</a></div>`;
 function vProjects() {
+  const act = st.activeProjects(), shown = act.filter(whoProject), gen = whoProject(null);
+  const me = whoMe();
   return {
-    title: "Projekte",
-    html: `${projSwitch("list")}<div class="page-h"><h1>Projekte</h1><div style="display:flex;gap:8px"><a class="btn" href="#/archiv">${i("archive")}Archiv</a><button class="btn red" id="np">${i("plus")}Projekt</button></div></div>
-      <div class="pgrid">${st.activeProjects().map(projectCard).join("")}${projectCard(null)}</div>`,
+    title: me ? "Meine Projekte" : whoAll() ? "Projekte" : `Projekte von ${whoFirst()}`, who: true,
+    html: `${projSwitch("list")}<div class="page-h"><h1>${esc(me ? "Meine Projekte" : whoAll() ? "Projekte" : "Projekte von " + whoFirst())}</h1><div style="display:flex;gap:8px"><a class="btn" href="#/archiv">${i("archive")}Archiv</a><button class="btn red" id="np">${i("plus")}Projekt</button></div></div>
+      ${whoAll() ? "" : `<p class="muted whohint" style="margin-top:-4px">Projekte, in denen ${me ? "du" : esc(whoFirst())} verantwortlich ${me ? "bist" : "ist"}, sie angelegt ${me ? "hast" : "hat"} oder Aufgaben ${me ? "hast" : "hat"}.</p>`}
+      ${shown.length || gen ? `<div class="pgrid">${shown.map(projectCard).join("")}${gen ? projectCard(null) : ""}</div>` : `<div class="card empty">Keine Projekte in dieser Auswahl.</div>`}
+      ${whoHidden(act.length - shown.length, act.length - shown.length === 1 ? "Projekt" : "Projekte")}`,
     after(r) { r.querySelector("#np").onclick = () => openProjectForm(); },
   };
 }
@@ -510,15 +545,17 @@ let projTab = "open";
 function vProject(id) {
   const p = id === "allgemein" ? null : st.project(id);
   if (id !== "allgemein" && !p) return { title: "Projekt", back: "#/projekte", html: `<div class="empty">Projekt nicht gefunden.</div>` };
-  const l = st.tasksOfProject(id), g = st.progress(l);
+  const all = st.tasksOfProject(id), g = st.progress(all); // Fortschritt immer über das ganze Projekt
+  const l = all.filter(whoTask);
   const open = l.filter((t) => t.status !== "done"), done = l.filter((t) => t.status === "done");
+  const allOpen = all.filter((t) => t.status !== "done");
   const canP = p && (st.isAdmin() || p.owner_id === S.me || p.created_by === S.me);
   const nextP = p?.next_project_id ? st.project(p.next_project_id) : null;
   const list = projTab === "open" ? taskList(open, { project: false, empty: "Keine offenen Aufgaben." })
     : projTab === "done" ? taskList(done, { project: false, group: false, empty: "Noch nichts erledigt." })
     : taskList(st.sortTasks(l), { project: false, group: false });
   return {
-    title: p ? p.name : "Allgemein", sub: "Projekt", back: "#/projekte",
+    title: p ? p.name : "Allgemein", sub: "Projekt", back: "#/projekte", who: true,
     html: `<div class="page-h"><h1>${esc(p ? p.name : "Allgemein")}${p?.archived ? ' <span class="chip">archiviert</span>' : ""}</h1>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${canP ? `<button class="btn" id="pe">${i("edit")}Bearbeiten</button>
           <button class="btn" id="pa">${i("archive")}${p.archived ? "Wiederherstellen" : "Archivieren"}</button>` : ""}
@@ -532,7 +569,7 @@ function vProject(id) {
         ${nextP ? `<div><span class="muted">Nächste Runde:</span> <a href="#/projekt/${nextP.id}">${nextP.due_date ? "bis " + fmtDate(nextP.due_date) : "öffnen"}</a></div>` : ""}` : `<div class="muted">Aufgaben ohne Projekt</div>`}
       </div></div>${p?.description ? `<div class="desc">${esc(p.description)}</div>` : ""}</div>
       <div style="margin-bottom:10px">${seg([["open", `Offen · ${open.length}`], ["done", `Erledigt · ${done.length}`], ["all", "Alle"]], projTab, "pt")}</div>
-      <div class="card list-cards">${list}</div>`,
+      <div class="card list-cards">${list}</div>${whoHidden(all.length - l.length, "Aufgaben")}`,
     after(r) {
       bindList(r);
       r.querySelectorAll("[data-pt]").forEach((b) => b.onclick = () => { projTab = b.dataset.pt; route(); });
@@ -541,8 +578,8 @@ function vProject(id) {
       const pa = r.querySelector("#pa"); if (pa) pa.onclick = async () => {
         const rec = !p.archived && p.recurrence?.unit && !p.next_project_id;
         if (rec && !confirm(`Projekt archivieren?\n\nDas Projekt wiederholt sich (${recText(p.recurrence)}). Die nächste Runde wird mit allen Aufgaben neu angelegt – Termine verschoben, alles wieder offen.`
-          + (open.length ? `\n\nHinweis: Es sind noch ${open.length} Aufgaben offen.` : ""))) return;
-        if (!rec && !p.archived && open.length && !confirm(`Es sind noch ${open.length} Aufgaben offen. Trotzdem archivieren?`)) return;
+          + (allOpen.length ? `\n\nHinweis: Es sind noch ${allOpen.length} Aufgaben offen.` : ""))) return;
+        if (!rec && !p.archived && allOpen.length && !confirm(`Es sind noch ${allOpen.length} Aufgaben offen. Trotzdem archivieren?`)) return;
         try {
           await st.archiveProject(p.id, !p.archived);
           const np = rec && st.project(p.id)?.next_project_id && st.project(st.project(p.id).next_project_id);
@@ -631,21 +668,23 @@ function vTask(id) {
 }
 
 function vReview() {
-  const wait = st.waitingForMe();
+  const u = whoId(), me = whoMe();
+  const wait = S.tasks.filter((t) => t.status === "review" && !st.archivedTask(t) && (!u || t.created_by === u));
   return {
-    title: "Zur Prüfung",
+    title: "Zur Prüfung", who: true,
     html: `<div class="page-h"><h1>Zur Prüfung</h1></div>
-      <p class="muted" style="margin-bottom:12px">Von dir angelegte Aufgaben, die erledigt wurden und auf deine Bestätigung warten.</p>
+      <p class="muted" style="margin-bottom:12px">${me ? "Von dir angelegte Aufgaben, die erledigt wurden und auf deine Bestätigung warten."
+        : u ? `Von ${esc(whoFirst())} angelegte Aufgaben, die erledigt wurden und auf seine/ihre Bestätigung warten.` : "Alle erledigten Aufgaben, die auf die Bestätigung durch den Ersteller warten."}</p>
       <div class="card list-cards">${taskList(wait, { group: false, empty: "Nichts zu prüfen." })}</div>`,
     after: bindList,
   };
 }
 
 function vArchive() {
-  const arch = S.projects.filter((p) => p.archived);
-  const done = S.tasks.filter((t) => t.status === "done").sort((a, b) => (b.done_at || "").localeCompare(a.done_at || "")).slice(0, 40);
+  const arch = S.projects.filter((p) => p.archived && whoProject(p));
+  const done = S.tasks.filter((t) => t.status === "done" && whoTask(t)).sort((a, b) => (b.done_at || "").localeCompare(a.done_at || "")).slice(0, 40);
   return {
-    title: "Archiv",
+    title: "Archiv", who: true,
     html: `<div class="page-h"><h1>Archiv</h1></div>
       <h3 style="font-size:15px;margin:4px 2px 10px">Abgeschlossene Projekte</h3>
       ${arch.length ? `<div class="pgrid" style="margin-bottom:20px">${arch.map(projectCard).join("")}</div>` : `<div class="card empty" style="margin-bottom:20px">Keine archivierten Projekte.</div>`}
@@ -717,7 +756,7 @@ function isoWeek(d) {
 }
 const calF = {
   mode: (() => { try { return localStorage.getItem("calMode") || "month"; } catch (_) { return "month"; } })(),
-  anchor: null, who: "", proj: "", done: false,
+  anchor: null, proj: "", done: false,
 };
 let calScroll = null;
 // Fenstergröße geändert (PC): Kalender neu an die Breite anpassen
@@ -761,7 +800,7 @@ function vCalendar() {
   const today = todayStr(), tIdx = dDiff(R.start, today);
   // Aufgaben filtern
   let tasks = S.tasks.filter((t) => !st.archivedTask(t));
-  if (calF.who) tasks = tasks.filter((t) => st.assigneesOf(t.id).includes(calF.who));
+  tasks = tasks.filter(whoTask);
   if (calF.proj) tasks = tasks.filter((t) => (calF.proj === "allgemein" ? !t.project_id : t.project_id === calF.proj));
   if (!calF.done) tasks = tasks.filter((t) => t.status !== "done");
   const noDate = tasks.filter((t) => !taskSpan(t)).length;
@@ -783,7 +822,7 @@ function vCalendar() {
       const e = p.due_date || (sp.length ? sp.map((x) => x[1]).sort().pop() : null) || s;
       if (s) span = [s, e < s ? s : e];
     }
-    return { p, rows, span, show: rows.length || (span && inRange(span) && !calF.who) };
+    return { p, rows, span, show: rows.length || (span && inRange(span) && whoAll()) };
   }).filter((g) => g.show);
 
   // Kopf: Monate + Tage bzw. Kalenderwochen
@@ -821,13 +860,12 @@ function vCalendar() {
 
   const sel = (id, opts, cur) => `<select class="inp" id="${id}" style="width:auto">${opts.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
   return {
-    title: "Kalender",
+    title: "Kalender", who: true,
     html: `${projSwitch("cal")}<div class="page-h calh"><h1>Kalender</h1>${seg([["2w", "2 Wochen"], ["month", "Monat"], ["quarter", "Quartal"]], calF.mode, "cm")}</div>
       <div class="gctl">
         <div class="gnav"><button class="btn sm" id="cprev" aria-label="Zurück">${i("back", "width:16px;height:16px")}</button><button class="btn sm" id="ctoday">Heute</button>
           <button class="btn sm" id="cnext" aria-label="Weiter">${i("back", "width:16px;height:16px;transform:rotate(180deg)")}</button><b class="glabel">${esc(R.label)}</b></div>
-        <div class="gfil">${sel("cw", [["", "Alle Personen"], ...st.activeProfiles().map((u) => [u.id, u.name])], calF.who)}
-          ${sel("cp", [["", "Alle Projekte"], ["allgemein", "Allgemein"], ...st.activeProjects().map((u) => [u.id, u.name])], calF.proj)}
+        <div class="gfil">${sel("cp", [["", "Alle Projekte"], ["allgemein", "Allgemein"], ...st.activeProjects().map((u) => [u.id, u.name])], calF.proj)}
           <label class="check" style="font-size:13px"><input type="checkbox" id="cd" ${calF.done ? "checked" : ""}>Erledigte zeigen</label></div>
       </div>
       <div class="card gantt" style="--dw:${dw}px;--lw:${lw}px">
@@ -838,14 +876,13 @@ function vCalendar() {
       </div>
       <div class="glegend muted"><span><i class="gbar lg"></i>offen</span><span><i class="gbar lg over"></i>überfällig</span><span><i class="gbar lg rev"></i>zur Prüfung</span><span><i class="gbar lg done"></i>erledigt</span><span><i class="gpbar lg"><span style="width:60%"></span></i>Projekt (Fortschritt)</span></div>
       <p class="muted" style="font-size:13px;margin:8px 2px 0">Balken laufen vom Beginn bis zur Frist. Aufgaben ohne Beginn erscheinen als kurzer Balken am Tag der Frist – den Beginn trägst du beim Bearbeiten der Aufgabe ein.${S.hasStart ? "" : " <b>Hinweis:</b> Das Feld „Beginn“ ist verfügbar, sobald ein Admin 05_prioritaet_kalender.sql in Supabase ausgeführt hat."}
-        ${noDate ? `<br>${noDate} ${noDate === 1 ? "Aufgabe hat" : "Aufgaben haben"} weder Beginn noch Frist und ${noDate === 1 ? "erscheint" : "erscheinen"} nicht im Kalender – siehe <a href="#/aufgaben/alle">Alle Aufgaben</a>.` : ""}</p>`,
+        ${noDate ? `<br>${noDate} ${noDate === 1 ? "Aufgabe hat" : "Aufgaben haben"} weder Beginn noch Frist und ${noDate === 1 ? "erscheint" : "erscheinen"} nicht im Kalender – siehe <a href="#/aufgaben/offen">Aufgaben</a>.` : ""}</p>`,
     after(r) {
       bindList(r);
       r.querySelectorAll("[data-cm]").forEach((b) => b.onclick = () => { calF.mode = b.dataset.cm; calScroll = null; try { localStorage.setItem("calMode", calF.mode); } catch (_) { /* */ } route(); });
       r.querySelector("#cprev").onclick = () => { calShift(-1); route(); };
       r.querySelector("#cnext").onclick = () => { calShift(1); route(); };
       r.querySelector("#ctoday").onclick = () => { calF.anchor = null; calScroll = null; route(); };
-      r.querySelector("#cw").onchange = (e) => { calF.who = e.target.value; route(); };
       r.querySelector("#cp").onchange = (e) => { calF.proj = e.target.value; route(); };
       r.querySelector("#cd").onchange = (e) => { calF.done = e.target.checked; route(); };
       const gs = r.querySelector("#gs");
@@ -912,11 +949,12 @@ const IDEA_SORTS = [["priority", "Priorität"], ["new", "Neueste zuerst"]];
 function vIdeas() {
   if (S.ideasMissing) return { title: "Ideen", noFab: true,
     html: `<div class="page-h"><h1>Ideen</h1></div><div class="card empty">Der Ideen-Bereich ist noch nicht eingerichtet.<br>Ein Admin muss einmalig die Datenbank-Erweiterung <b>03_ideen.sql</b> in Supabase ausführen.</div>` };
-  const open = S.ideas.filter((x) => x.status === "open"), done = S.ideas.filter((x) => x.status === "adopted");
+  const u = whoId(), mineI = S.ideas.filter((x) => !u || x.created_by === u);
+  const open = mineI.filter((x) => x.status === "open"), done = mineI.filter((x) => x.status === "adopted");
   const sortBy = S.hasRating ? ideaSort : "new";
   const list = st.sortIdeas(ideaTab === "open" ? open : done, sortBy);
   return {
-    title: "Ideen",
+    title: "Ideen", who: true,
     html: `<div class="page-h"><h1>Ideen</h1><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         ${seg([["open", `Offen · ${open.length}`], ["adopted", `Übernommen · ${done.length}`]], ideaTab, "it")}
         <button class="btn red" id="ni">${i("plus")}Idee</button></div></div>
@@ -924,7 +962,8 @@ function vIdeas() {
       <p class="muted" style="font-size:13px;margin:0 2px 12px">Hier landet alles, was man nicht vergessen will, aber noch keine Aufgabe ist. Ideen lassen sich nach Priorität einstufen (Idee antippen) – gemeint ist, wie machbar, wichtig und dringend sie insgesamt ist. Mit „Übernehmen“ wird daraus eine Aufgabe oder ein Projekt.</p>
       ${S.hasRating ? `<div class="isort"><label for="isrt" class="muted">Sortieren nach</label><select class="inp" id="isrt">${IDEA_SORTS.map(([k, l]) => `<option value="${k}" ${k === ideaSort ? "selected" : ""}>${l}</option>`).join("")}</select></div>`
         : `<div class="card note" style="border-left-color:var(--warn)"><div class="tx muted" style="font-size:13px">Einstufen und Sortieren nach Priorität ist verfügbar, sobald ein Admin <b>05_prioritaet_kalender.sql</b> in Supabase ausgeführt hat.</div></div>`}
-      <div class="card list-cards">${list.map(ideaRow).join("") || `<div class="empty">${ideaTab === "open" ? "Noch keine Ideen notiert." : "Noch keine Idee übernommen."}</div>`}</div>`,
+      <div class="card list-cards">${list.map(ideaRow).join("") || `<div class="empty">${ideaTab === "open" ? "Noch keine Ideen notiert." : "Noch keine Idee übernommen."}</div>`}</div>
+      ${whoHidden(S.ideas.length - mineI.length, "Ideen")}`,
     after(r) {
       bindIdeas(r);
       r.querySelectorAll("[data-it]").forEach((b) => b.onclick = () => { ideaTab = b.dataset.it; route(); });
