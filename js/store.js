@@ -6,7 +6,7 @@ export const S = {
   me: null, profile: null,
   profiles: [], projects: [], tasks: [], assignees: [], checklist: [], comments: [], notifications: [], ideas: [],
   ideasMissing: false, loaded: false,
-  hasStart: true, hasRating: true, // neue Spalten aus 05_bewertung_kalender.sql vorhanden?
+  hasStart: true, hasRating: true, // neue Spalten aus 05_prioritaet_kalender.sql vorhanden?
 };
 const listeners = new Set();
 export const onChange = (fn) => listeners.add(fn);
@@ -27,9 +27,9 @@ export async function loadAll() {
     sb.from("comments").select("*").order("created_at"),
     sb.from("notifications").select("*").order("created_at", { ascending: false }).limit(100),
     sb.from("ideas").select("*").order("created_at", { ascending: false }),
-    // Prüfen, ob 05_bewertung_kalender.sql schon eingespielt ist (sonst laufen Speichern und Anzeige ohne die neuen Felder)
+    // Prüfen, ob 05_prioritaet_kalender.sql schon eingespielt ist (sonst laufen Speichern und Anzeige ohne die neuen Felder)
     sb.from("tasks").select("start_date").limit(1),
-    sb.from("ideas").select("feasibility").limit(1),
+    sb.from("ideas").select("priority").limit(1),
   ]);
   S.profiles = check(pr) || []; S.projects = check(pj) || []; S.tasks = check(tk) || [];
   S.assignees = check(as) || []; S.checklist = check(ck) || []; S.comments = check(cm) || [];
@@ -90,23 +90,12 @@ export function sortTasks(list) {
   });
 }
 // ---------- Ideen bewerten ----------
-export const RATE_KEYS = [["feasibility", "Machbarkeit", "M"], ["relevance", "Relevanz", "R"], ["priority", "Priorität", "P"]];
-export const RATE_LBL = { 1: "niedrig", 2: "mittel", 3: "hoch" };
-/** Gesamtwert einer Idee: Summe der Bewertungen (max. 9), unbewertete Kriterien zählen 0 */
-export const ideaScore = (x) => (x.feasibility || 0) + (x.relevance || 0) + (x.priority || 0);
-export const ideaRated = (x) => !!(x.feasibility || x.relevance || x.priority);
-/** Sortierung: "score" Gesamtwert, "priority" / "relevance" / "feasibility" einzeln, "new" neueste zuerst.
- *  Bei Gleichstand entscheidet der Gesamtwert, dann das Datum. Unbewertete stehen immer unten. */
-export function sortIdeas(list, by = "score") {
+// Priorität einer Idee wie bei Aufgaben: 1 = hoch, 2 = mittel, 3 = niedrig, leer = noch nicht eingestuft
+/** Sortierung: "priority" hoch → niedrig (nicht eingestufte unten), bei Gleichstand neueste zuerst; "new" nur nach Datum */
+export function sortIdeas(list, by = "priority") {
   const newer = (a, b) => (b.created_at || "").localeCompare(a.created_at || "");
   if (by === "new") return [...list].sort(newer);
-  return [...list].sort((a, b) => {
-    const ra = ideaRated(a), rb = ideaRated(b);
-    if (ra !== rb) return ra ? -1 : 1;
-    if (by !== "score") { const d = (b[by] || 0) - (a[by] || 0); if (d) return d; }
-    const d2 = ideaScore(b) - ideaScore(a); if (d2) return d2;
-    return newer(a, b);
-  });
+  return [...list].sort((a, b) => (a.priority || 9) - (b.priority || 9) || newer(a, b));
 }
 
 export function groupByDue(list) {
@@ -194,12 +183,12 @@ export async function deleteProject(id) { check(await sb.from("projects").delete
 // ---------- Ideen ----------
 function ideaFields(d) {
   const r = { ...d };
-  if (!S.hasRating) RATE_KEYS.forEach(([k]) => delete r[k]);
+  if (!S.hasRating) delete r.priority;
   return r;
 }
 export async function createIdea(d) {
   check(await sb.from("ideas").insert({ ...ideaFields({ title: d.title, description: d.description || null, project_id: d.project_id || null,
-    feasibility: d.feasibility || null, relevance: d.relevance || null, priority: d.priority || null }), created_by: S.me }));
+    priority: d.priority || null }), created_by: S.me }));
   await loadAll();
 }
 export async function updateIdea(id, d) { d = ideaFields(d); check(await sb.from("ideas").update(d).eq("id", id)); await loadAll(); }

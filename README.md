@@ -8,6 +8,6 @@ Aufgaben-App für Aufgaben außerhalb des Tagesgeschäfts – Tischlermeister No
 - `supabase/02_push.sql` – Push-Anbindung
 - `supabase/03_ideen.sql` – Ideen-Bereich (ab v1.0.19)
 - `supabase/04_ideen_projekt.sql` – Ideen auch als Projekt übernehmen (ab v1.0.22)
-- `supabase/05_bewertung_kalender.sql` – Ideen bewerten, „Beginn“ für Kalender/Gantt (ab v1.0.23)
+- `supabase/05_prioritaet_kalender.sql` – Ideen-Priorität, „Beginn“ für Kalender/Gantt, enthält auch 04 (ab v1.0.23)
 - `supabase/functions/send-push` – verschickt Push-Nachrichten (Secret: `VAPID_PRIVATE_KEY`)
 - `supabase/functions/invite-user` – Nutzer anlegen, Passwort zurücksetzen, sperren (nur Admins)

@@ -743,7 +743,7 @@ function vCalendar() {
         </div></div>` : `<div class="empty">Im gewählten Zeitraum stehen keine Aufgaben mit Frist.</div>`}
       </div>
       <div class="glegend muted"><span><i class="gbar lg"></i>offen</span><span><i class="gbar lg over"></i>überfällig</span><span><i class="gbar lg rev"></i>zur Prüfung</span><span><i class="gbar lg done"></i>erledigt</span><span><i class="gpbar lg"><span style="width:60%"></span></i>Projekt (Fortschritt)</span></div>
-      <p class="muted" style="font-size:13px;margin:8px 2px 0">Balken laufen vom Beginn bis zur Frist. Aufgaben ohne Beginn erscheinen als kurzer Balken am Tag der Frist – den Beginn trägst du beim Bearbeiten der Aufgabe ein.${S.hasStart ? "" : " <b>Hinweis:</b> Das Feld „Beginn“ ist verfügbar, sobald ein Admin 05_bewertung_kalender.sql in Supabase ausgeführt hat."}
+      <p class="muted" style="font-size:13px;margin:8px 2px 0">Balken laufen vom Beginn bis zur Frist. Aufgaben ohne Beginn erscheinen als kurzer Balken am Tag der Frist – den Beginn trägst du beim Bearbeiten der Aufgabe ein.${S.hasStart ? "" : " <b>Hinweis:</b> Das Feld „Beginn“ ist verfügbar, sobald ein Admin 05_prioritaet_kalender.sql in Supabase ausgeführt hat."}
         ${noDate ? `<br>${noDate} ${noDate === 1 ? "Aufgabe hat" : "Aufgaben haben"} weder Beginn noch Frist und ${noDate === 1 ? "erscheint" : "erscheinen"} nicht im Kalender – siehe <a href="#/alle">Alle Aufgaben</a>.` : ""}</p>`,
     after(r) {
       bindList(r);
@@ -784,13 +784,10 @@ function ideaRow(x) {
     <div class="tt"><div class="ti">${esc(x.title)}</div>${x.description ? `<div class="idesc">${esc(x.description)}</div>` : ""}<div class="meta">${meta}</div></div>
     <div class="side-r"><div class="iact">${act}</div></div></div>`;
 }
-/** Kurzanzeige der Bewertung: M/R/P mit je drei Punkten + Gesamtwert */
+/** Kurzanzeige der Priorität einer Idee */
 function rateBadge(x) {
-  if (!st.ideaRated(x)) return `<span class="rates none">noch nicht bewertet</span>`;
-  const sc = st.ideaScore(x);
-  return `<span class="rates" title="${st.RATE_KEYS.map(([k, l]) => `${l}: ${x[k] ? st.RATE_LBL[x[k]] : "–"}`).join(" · ")}">
-    ${st.RATE_KEYS.map(([k, , s]) => `<span class="rk">${s}<span class="dots v${x[k] || 0}"><i></i><i></i><i></i></span></span>`).join("")}
-    <span class="sc ${sc >= 7 ? "hi" : ""}">${sc}/9</span></span>`;
+  if (!x.priority) return `<span class="rates none">noch nicht eingestuft</span>`;
+  return `<span class="rates p-${x.priority}" title="Priorität ${PRIO[x.priority]}"><span class="prio p${x.priority}"></span>${PRIO[x.priority]}</span>`;
 }
 function bindIdeas(root) {
   root.querySelectorAll("[data-adopt]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); adoptIdea(st.idea(b.dataset.adopt)); });
@@ -812,12 +809,12 @@ function adoptIdea(x) {
     });
 }
 function adoptIdeaAsTask(x) {
-  openTaskForm(null, { title: x.title, description: x.description || "", project_id: x.project_id || currentProject(), idea_id: x.id });
+  openTaskForm(null, { title: x.title, description: x.description || "", project_id: x.project_id || currentProject(), priority: x.priority || 2, idea_id: x.id });
 }
 
 let ideaTab = "open";
-let ideaSort = (() => { try { return localStorage.getItem("ideaSort") || "score"; } catch (_) { return "score"; } })();
-const IDEA_SORTS = [["score", "Gesamtwert"], ["priority", "Priorität"], ["relevance", "Relevanz"], ["feasibility", "Machbarkeit"], ["new", "Neueste zuerst"]];
+let ideaSort = (() => { try { return localStorage.getItem("ideaSort2") || "priority"; } catch (_) { return "priority"; } })();
+const IDEA_SORTS = [["priority", "Priorität"], ["new", "Neueste zuerst"]];
 function vIdeas() {
   if (S.ideasMissing) return { title: "Ideen", noFab: true,
     html: `<div class="page-h"><h1>Ideen</h1></div><div class="card empty">Der Ideen-Bereich ist noch nicht eingerichtet.<br>Ein Admin muss einmalig die Datenbank-Erweiterung <b>03_ideen.sql</b> in Supabase ausführen.</div>` };
@@ -830,15 +827,15 @@ function vIdeas() {
         ${seg([["open", `Offen · ${open.length}`], ["adopted", `Übernommen · ${done.length}`]], ideaTab, "it")}
         <button class="btn red" id="ni">${i("plus")}Idee</button></div></div>
       <form class="card iquick" id="iq">${i("bulb", "color:var(--warn)")}<input id="iqin" placeholder="Idee schnell notieren …" autocomplete="off" maxlength="200"><button class="btn red sm">Notieren</button></form>
-      <p class="muted" style="font-size:13px;margin:0 2px 12px">Hier landet alles, was man nicht vergessen will, aber noch keine Aufgabe ist. Ideen lassen sich nach Machbarkeit, Relevanz und Priorität bewerten (Idee antippen). Mit „Übernehmen“ wird daraus eine Aufgabe oder ein Projekt.</p>
+      <p class="muted" style="font-size:13px;margin:0 2px 12px">Hier landet alles, was man nicht vergessen will, aber noch keine Aufgabe ist. Ideen lassen sich nach Priorität einstufen (Idee antippen) – gemeint ist, wie machbar, wichtig und dringend sie insgesamt ist. Mit „Übernehmen“ wird daraus eine Aufgabe oder ein Projekt.</p>
       ${S.hasRating ? `<div class="isort"><label for="isrt" class="muted">Sortieren nach</label><select class="inp" id="isrt">${IDEA_SORTS.map(([k, l]) => `<option value="${k}" ${k === ideaSort ? "selected" : ""}>${l}</option>`).join("")}</select></div>`
-        : `<div class="card note" style="border-left-color:var(--warn)"><div class="tx muted" style="font-size:13px">Bewerten und Sortieren ist verfügbar, sobald ein Admin <b>05_bewertung_kalender.sql</b> in Supabase ausgeführt hat.</div></div>`}
+        : `<div class="card note" style="border-left-color:var(--warn)"><div class="tx muted" style="font-size:13px">Einstufen und Sortieren nach Priorität ist verfügbar, sobald ein Admin <b>05_prioritaet_kalender.sql</b> in Supabase ausgeführt hat.</div></div>`}
       <div class="card list-cards">${list.map(ideaRow).join("") || `<div class="empty">${ideaTab === "open" ? "Noch keine Ideen notiert." : "Noch keine Idee übernommen."}</div>`}</div>`,
     after(r) {
       bindIdeas(r);
       r.querySelectorAll("[data-it]").forEach((b) => b.onclick = () => { ideaTab = b.dataset.it; route(); });
       const srt = r.querySelector("#isrt");
-      if (srt) srt.onchange = () => { ideaSort = srt.value; try { localStorage.setItem("ideaSort", ideaSort); } catch (_) { /* */ } route(); };
+      if (srt) srt.onchange = () => { ideaSort = srt.value; try { localStorage.setItem("ideaSort2", ideaSort); } catch (_) { /* */ } route(); };
       r.querySelector("#ni").onclick = () => openIdeaForm();
       r.querySelector("#iq").onsubmit = async (e) => {
         e.preventDefault();
@@ -956,7 +953,7 @@ function modal(title, body, foot, onMount) {
 
 function openTaskForm(t, preset = {}) {
   const edit = !!t;
-  const d = t || { title: preset.title || "", description: preset.description || "", project_id: preset.project_id || "", start_date: preset.start_date || "", due_date: preset.due_date || "", priority: 2, needs_approval: false };
+  const d = t || { title: preset.title || "", description: preset.description || "", project_id: preset.project_id || "", start_date: preset.start_date || "", due_date: preset.due_date || "", priority: preset.priority || 2, needs_approval: false };
   const ass = edit ? st.assigneesOf(t.id) : [S.me];
   const projs = st.activeProjects();
   if (d.project_id && !projs.find((p) => p.id === d.project_id)) { const pp = st.project(d.project_id); if (pp) projs.push(pp); }
@@ -1020,8 +1017,8 @@ function openIdeaForm(x) {
     <div class="field"><label>Notizen</label><textarea name="description" ${dis}>${esc(d.description || "")}</textarea></div>
     <div class="field"><label>Passt zu Projekt (optional)</label><select name="project_id" ${dis}><option value="">–</option>
       ${projs.map((p) => `<option value="${p.id}" ${p.id === d.project_id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div>
-    ${S.hasRating ? `<div class="field"><label>Bewertung</label><div class="rgrid">${st.RATE_KEYS.map(([k, l]) => `<span class="rl">${l}</span>
-      <div class="pick rpick">${[[0, "–"], [1, "niedrig"], [2, "mittel"], [3, "hoch"]].map(([v, t]) => `<label><input type="radio" name="r_${k}" value="${v}" ${(d[k] || 0) === v ? "checked" : ""} ${dis}>${t}</label>`).join("")}</div>`).join("")}</div></div>` : ""}`,
+    ${S.hasRating ? `<div class="field"><label>Priorität <span style="font-weight:400">(machbar, wichtig, dringend – insgesamt)</span></label>
+      <div class="pick">${[[0, "noch offen"], [1, PRIO[1]], [2, PRIO[2]], [3, PRIO[3]]].map(([v, t]) => `<label><input type="radio" name="iprio" value="${v}" ${(d.priority || 0) === v ? "checked" : ""} ${dis}>${v ? `<span class="prio p${v}" style="margin-left:6px"></span>` : `<span style="width:6px"></span>`}${t}</label>`).join("")}</div></div>` : ""}`,
     `${edit && can ? `<button type="button" class="btn danger" id="idel" style="margin-right:auto" title="Löschen">${i("trash")}</button>` : ""}
      ${edit && x.status === "open" ? `<button type="button" class="btn" id="iad">${i("check")}Übernehmen</button>` : ""}
      ${edit && x.status === "adopted" && can ? `<button type="button" class="btn" id="ire">${i("undo")}Wieder offen</button>` : ""}
@@ -1029,7 +1026,7 @@ function openIdeaForm(x) {
     (f, close) => {
       const read = () => {
         const r = { title: f.title.value.trim(), description: f.description.value.trim() || null, project_id: f.project_id.value || null };
-        if (S.hasRating) st.RATE_KEYS.forEach(([k]) => { r[k] = Number(f.querySelector(`[name=r_${k}]:checked`)?.value || 0) || null; });
+        if (S.hasRating) r.priority = Number(f.querySelector("[name=iprio]:checked")?.value || 0) || null;
         return r;
       };
       f.onsubmit = async (e) => {
@@ -1049,7 +1046,7 @@ function openIdeaForm(x) {
         // ungespeicherte Änderungen vorher sichern, damit sie in die Aufgabe bzw. das Projekt übernommen werden
         const data = read();
         if (can && data.title && (data.title !== x.title || data.description !== (x.description || null) || data.project_id !== (x.project_id || null)
-          || st.RATE_KEYS.some(([k]) => k in data && data[k] !== (x[k] || null)))) {
+          || ("priority" in data && data.priority !== (x.priority || null)))) {
           try { await st.updateIdea(x.id, data); } catch (_) { /* */ }
         }
         close(); adoptIdea({ ...x, ...(can && data.title ? data : {}) });
