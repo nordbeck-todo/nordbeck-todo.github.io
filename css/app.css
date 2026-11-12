@@ -108,6 +108,14 @@ html.ipad { --safe-t: calc(max(env(safe-area-inset-top, 0px), 32px) + 16px); }
 @media (max-width: 900px) { .safe-bottom { display: none; } }
 .page-h { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .page-h h1 { font-size: 22px; font-weight: 600; }
+/* Aufgaben: Umschalter Eigene/Alle/Person und Projekt (ab v1.0.30) */
+.tfil { display: flex; gap: 8px; flex-wrap: wrap; }
+.tfil select { width: auto; min-width: 170px; }
+.ttabs { margin-bottom: 12px; }
+@media (max-width: 900px) {
+  .tfil { width: 100%; flex-wrap: nowrap; } .tfil select { flex: 1; min-width: 0; }
+  .ttabs .seg { flex-wrap: nowrap; } .ttabs .seg .btn { flex: 1; padding-left: 6px; padding-right: 6px; }
+}
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
 .stat { padding: 18px 20px; display: block; color: inherit; }
 .stat .t { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }

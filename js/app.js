@@ -121,8 +121,8 @@ function renderSetPassword() {
 // Grundgerüst
 // =====================================================================
 const NAV = [
-  ["#/", "home", "Übersicht"], ["#/aufgaben", "check", "Meine Aufgaben", () => st.myOpen().length],
-  ["#/alle", "list", "Alle Aufgaben"], ["#/kalender", "cal", "Kalender"], ["#/projekte", "folder", "Projekte"], ["#/ideen", "bulb", "Ideen"],
+  ["#/", "home", "Übersicht"], ["#/aufgaben", "check", "Aufgaben", () => st.myOpen().length],
+  ["#/kalender", "cal", "Kalender"], ["#/projekte", "folder", "Projekte"], ["#/ideen", "bulb", "Ideen"],
   ["#/pruefung", "eye", "Zur Prüfung", () => st.waitingForMe().length], ["#/archiv", "archive", "Archiv"],
 ];
 function shell() {
@@ -200,7 +200,7 @@ function currentProject() { const m = location.hash.match(/^#\/projekt\/([^/]+)/
 function updateChrome(path, v) {
   const nav = NAV.map(([h, ic, t, cnt]) => {
     const c = cnt ? cnt() : 0;
-    const act = h === "#/" ? path === "" : path.startsWith(h.slice(2));
+    const act = h === "#/" ? path === "" : path.startsWith(h.slice(2)) || (h === "#/aufgaben" && path === "alle");
     return `<a class="mi${act ? " act" : ""}" href="${h}">${i(ic)}<span>${t}</span>${c ? `<span class="badge">${c}</span>` : ""}</a>`;
   }).join("");
   document.getElementById("snav").innerHTML = nav;
@@ -218,10 +218,10 @@ function updateChrome(path, v) {
       <a href="#/" class="mlogo"><img src="img/logo.png" alt="Tischlermeister Nordbeck"></a><span class="mside r">${bell}</span></div>
     <div class="mtitle">${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ""}<div class="ptitle">${esc(v.title)}</div></div>`;
   const mn = [["#/", "home", "Übersicht", ""], ["#/aufgaben", "check", "Aufgaben", "aufgaben"], ["#/projekte", "folder", "Projekte", "projekt"], ["#/ideen", "bulb", "Ideen", "ideen"], ["#/mehr", "more", "Mehr", "mehr"]];
-  const moreKeys = ["alle", "pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
+  const moreKeys = ["pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
   const w = st.waitingForMe().length;
   document.getElementById("mnav").innerHTML = mn.map(([h, ic, t, key]) => {
-    const act = key === "" ? path === "" : key === "mehr" ? moreKeys.some((k) => path.startsWith(k)) : path.startsWith(key) || (key === "aufgaben" && path.startsWith("aufgabe/")) || (key === "projekt" && path.startsWith("kalender"));
+    const act = key === "" ? path === "" : key === "mehr" ? moreKeys.some((k) => path.startsWith(k)) : path.startsWith(key) || (key === "aufgaben" && (path.startsWith("aufgabe/") || path === "alle")) || (key === "projekt" && path.startsWith("kalender"));
     const b = key === "aufgaben" ? st.myOpen().length : key === "mehr" ? w : 0;
     return `<a href="${h}" class="${act ? "act" : ""}"><span class="ic">${i(ic)}</span>${t}${b ? `<span class="badge">${b}</span>` : ""}</a>`;
   }).join("");
@@ -235,7 +235,7 @@ function updateChrome(path, v) {
 // Router
 // =====================================================================
 const ROUTES = [
-  [/^$/, vDashboard], [/^aufgaben$/, vMine], [/^alle$/, vAll], [/^projekte$/, vProjects], [/^projekt\/([^/]+)$/, vProject],
+  [/^$/, vDashboard], [/^aufgaben(?:\/(alle|eigene))?$/, vTasks], [/^alle$/, () => vTasks("alle")], [/^projekte$/, vProjects], [/^projekt\/([^/]+)$/, vProject],
   [/^aufgabe\/([^/]+)$/, vTask], [/^pruefung$/, vReview], [/^archiv$/, vArchive], [/^mitteilungen$/, vNotifications],
   [/^ideen$/, vIdeas], [/^kalender$/, vCalendar], [/^nutzer$/, vUsers], [/^einstellungen$/, vSettings], [/^mehr$/, vMore], [/^suche\/(.+)$/, vSearch],
 ];
@@ -419,13 +419,13 @@ function vDashboard() {
     html: `<div class="page-h"><div><h1 style="display:block">${greeting()}${first ? ", " + esc(first) : ""}</h1><div class="muted">${longDate()}</div></div></div>
       ${pushNote()}
       <div class="stats">
-        ${stat("#/aufgaben", "check", "Meine offenen Aufgaben", mine.length, over ? `davon ${over} überfällig` : "nichts überfällig", over > 0)}
-        ${stat("#/aufgaben", "cal", "Heute fällig", today.length, today.map((t) => t.title).join(", ").slice(0, 60) || "–")}
+        ${stat("#/aufgaben/eigene", "check", "Meine offenen Aufgaben", mine.length, over ? `davon ${over} überfällig` : "nichts überfällig", over > 0)}
+        ${stat("#/aufgaben/eigene", "cal", "Heute fällig", today.length, today.map((t) => t.title).join(", ").slice(0, 60) || "–")}
         ${stat("#/pruefung", "eye", "Zur Prüfung", wait.length, wait.length ? "wartet auf deine Bestätigung" : "nichts offen")}
         ${stat("#/projekte", "folder", "Aktive Projekte", projs.length, projs.length ? `Ø ${avg} % erledigt` : "–")}
       </div>
       <div class="cols">
-        <div class="card list-cards-m"><div class="card-h"><h3>Meine Aufgaben</h3><a class="btn sm" href="#/aufgaben">Alle anzeigen</a></div>
+        <div class="card list-cards-m"><div class="card-h"><h3>Meine Aufgaben</h3><a class="btn sm" href="#/aufgaben/eigene">Zur Liste</a></div>
           ${taskList(st.sortTasks(mine).slice(0, 8), { group: false, empty: "Keine offenen Aufgaben – sehr gut!" })}
           <div class="card-f"><a href="#" data-new>+ Aufgabe hinzufügen</a></div></div>
         <div class="card"><div class="card-h"><h3>Projekte</h3><button class="btn sm" id="np">${i("plus", "width:14px;height:14px")}Projekt</button></div>
@@ -435,43 +435,50 @@ function vDashboard() {
   };
 }
 
-let mineTab = "open";
-function vMine() {
-  const mine = S.tasks.filter((t) => (st.isMine(t) || (t.created_by === S.me && t.status === "review")) && !st.archivedTask(t));
-  const open = mine.filter((t) => t.status === "open"), rev = mine.filter((t) => t.status === "review");
-  const done = mine.filter((t) => t.status === "done").sort((a, b) => (b.done_at || "").localeCompare(a.done_at || "")).slice(0, 50);
-  const list = mineTab === "open" ? taskList(open, { empty: "Keine offenen Aufgaben – sehr gut!" })
-    : mineTab === "review" ? taskList(rev, { group: false, empty: "Nichts zur Prüfung." })
+// Aufgaben: eine Liste mit Umschalter wie in HERO – „Eigene anzeigen“, „Alle anzeigen“ oder eine bestimmte Person.
+// Auswahl bleibt pro Gerät gespeichert; Links mit #/aufgaben/eigene bzw. #/aufgaben/alle setzen sie gezielt.
+const taskF = {
+  who: (() => { try { return localStorage.getItem("taskWho") || "me"; } catch (_) { return "me"; } })(),
+  proj: "", tab: "open",
+};
+function setTaskWho(w) { taskF.who = w; try { localStorage.setItem("taskWho", w); } catch (_) { /* */ } }
+function vTasks(pre) {
+  if (pre) {
+    setTaskWho(pre === "alle" ? "all" : "me"); taskF.tab = "open"; taskF.proj = "";
+    history.replaceState(null, "", "#/aufgaben"); // Vorgabe nur einmal anwenden, danach gilt der Umschalter
+  }
+  const others = st.activeProfiles().filter((p) => p.id !== S.me);
+  if (!["me", "all"].includes(taskF.who) && !others.some((p) => p.id === taskF.who)) taskF.who = "me";
+  if (taskF.proj && taskF.proj !== "allgemein" && !st.activeProjects().some((p) => p.id === taskF.proj)) taskF.proj = "";
+  const uid = taskF.who === "me" ? S.me : taskF.who === "all" ? null : taskF.who;
+  let base = S.tasks.filter((t) => !st.archivedTask(t));
+  // Person: zuständig – oder Ersteller einer Aufgabe, die auf ihre Bestätigung wartet
+  if (uid) base = base.filter((t) => st.assigneesOf(t.id).includes(uid) || (t.created_by === uid && t.status === "review"));
+  if (taskF.proj) base = base.filter((t) => (taskF.proj === "allgemein" ? !t.project_id : t.project_id === taskF.proj));
+  const open = base.filter((t) => t.status === "open"), rev = base.filter((t) => t.status === "review");
+  const done = base.filter((t) => t.status === "done").sort((a, b) => (b.done_at || "").localeCompare(a.done_at || "")).slice(0, 100);
+  const mine = taskF.who === "me";
+  const list = taskF.tab === "open" ? taskList(open, { empty: mine ? "Keine offenen Aufgaben – sehr gut!" : "Keine offenen Aufgaben." })
+    : taskF.tab === "review" ? taskList(rev, { group: false, empty: "Nichts zur Prüfung." })
     : taskList(done, { group: false, empty: "Noch nichts erledigt." });
+  const who = others.find((p) => p.id === taskF.who);
+  const title = mine ? "Meine Aufgaben" : who ? `Aufgaben von ${who.name.split(" ")[0]}` : "Alle Aufgaben";
+  const opt = (v, l, cur) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`;
   return {
-    title: "Meine Aufgaben",
-    html: `<div class="page-h"><h1>Meine Aufgaben</h1>${seg([["open", `Offen · ${open.length}`], ["review", `Zur Prüfung · ${rev.length}`], ["done", "Erledigt"]], mineTab, "tab")}</div>
+    title,
+    html: `<div class="page-h"><h1>${esc(title)}</h1>
+        <div class="tfil">
+          <select class="inp" id="fw" aria-label="Wessen Aufgaben">${opt("me", "Eigene anzeigen", taskF.who)}${opt("all", "Alle anzeigen", taskF.who)}
+            ${others.length ? `<optgroup label="Person">${others.map((p) => opt(p.id, p.name, taskF.who)).join("")}</optgroup>` : ""}</select>
+          <select class="inp" id="fp" aria-label="Projekt">${opt("", "Alle Projekte", taskF.proj)}${opt("allgemein", "Allgemein", taskF.proj)}${st.activeProjects().map((p) => opt(p.id, p.name, taskF.proj)).join("")}</select>
+        </div></div>
+      <div class="ttabs">${seg([["open", `Offen · ${open.length}`], ["review", `Zur Prüfung · ${rev.length}`], ["done", "Erledigt"]], taskF.tab, "tab")}</div>
       <div class="card list-cards">${list}</div>`,
-    after(r) { bindList(r); r.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { mineTab = b.dataset.tab; route(); }); },
-  };
-}
-
-const allF = { who: "", proj: "", status: "open" };
-function vAll() {
-  let list = S.tasks.filter((t) => !st.archivedTask(t));
-  if (allF.who) list = list.filter((t) => st.assigneesOf(t.id).includes(allF.who));
-  if (allF.proj) list = list.filter((t) => (allF.proj === "allgemein" ? !t.project_id : t.project_id === allF.proj));
-  if (allF.status !== "all") list = list.filter((t) => (allF.status === "open" ? t.status !== "done" : t.status === "done"));
-  const sel = (id, opts, cur) => `<select class="inp" id="${id}" style="width:auto">${opts.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
-  return {
-    title: "Alle Aufgaben",
-    html: `<div class="page-h"><h1>Alle Aufgaben</h1></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        ${sel("fw", [["", "Alle Personen"], ...st.activeProfiles().map((p) => [p.id, p.name])], allF.who)}
-        ${sel("fp", [["", "Alle Projekte"], ["allgemein", "Allgemein"], ...st.activeProjects().map((p) => [p.id, p.name])], allF.proj)}
-        ${seg([["open", "Offen"], ["done", "Erledigt"], ["all", "Alle"]], allF.status, "st")}
-      </div>
-      <div class="card list-cards">${allF.status === "done" ? taskList(st.sortTasks(list).reverse(), { group: false }) : taskList(list)}</div>`,
     after(r) {
       bindList(r);
-      r.querySelector("#fw").onchange = (e) => { allF.who = e.target.value; route(); };
-      r.querySelector("#fp").onchange = (e) => { allF.proj = e.target.value; route(); };
-      r.querySelectorAll("[data-st]").forEach((b) => b.onclick = () => { allF.status = b.dataset.st; route(); });
+      r.querySelector("#fw").onchange = (e) => { setTaskWho(e.target.value); route(); };
+      r.querySelector("#fp").onchange = (e) => { taskF.proj = e.target.value; route(); };
+      r.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { taskF.tab = b.dataset.tab; route(); });
     },
   };
 }
@@ -673,7 +680,7 @@ function vMore() {
   const l = (h, ic, t, b) => `<a href="${h}">${i(ic)}<span>${t}</span>${b ? `<span class="badge">${b}</span>` : ""}</a>`;
   return {
     title: "Mehr", noFab: true,
-    html: `<div class="card mlist">${l("#/alle", "list", "Alle Aufgaben")}${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
+    html: `<div class="card mlist">${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
       ${l("#/mitteilungen", "bell", "Benachrichtigungen", u)}${st.isAdmin() ? l("#/nutzer", "users", "Nutzer verwalten") : ""}${l("#/einstellungen", "gear", "Einstellungen")}<a href="#" data-news>${i("star")}<span>Was ist neu</span></a></div>
       <form class="card" id="ms" style="margin-top:12px;padding:12px;display:flex;gap:8px"><input class="inp" name="q" placeholder="Suchen …"><button class="btn">${i("search")}</button></form>`,
     after(r) { r.querySelector("#ms").onsubmit = (e) => { e.preventDefault(); const q = e.target.q.value.trim(); if (q) location.hash = "#/suche/" + encodeURIComponent(q); }; },
@@ -831,7 +838,7 @@ function vCalendar() {
       </div>
       <div class="glegend muted"><span><i class="gbar lg"></i>offen</span><span><i class="gbar lg over"></i>überfällig</span><span><i class="gbar lg rev"></i>zur Prüfung</span><span><i class="gbar lg done"></i>erledigt</span><span><i class="gpbar lg"><span style="width:60%"></span></i>Projekt (Fortschritt)</span></div>
       <p class="muted" style="font-size:13px;margin:8px 2px 0">Balken laufen vom Beginn bis zur Frist. Aufgaben ohne Beginn erscheinen als kurzer Balken am Tag der Frist – den Beginn trägst du beim Bearbeiten der Aufgabe ein.${S.hasStart ? "" : " <b>Hinweis:</b> Das Feld „Beginn“ ist verfügbar, sobald ein Admin 05_prioritaet_kalender.sql in Supabase ausgeführt hat."}
-        ${noDate ? `<br>${noDate} ${noDate === 1 ? "Aufgabe hat" : "Aufgaben haben"} weder Beginn noch Frist und ${noDate === 1 ? "erscheint" : "erscheinen"} nicht im Kalender – siehe <a href="#/alle">Alle Aufgaben</a>.` : ""}</p>`,
+        ${noDate ? `<br>${noDate} ${noDate === 1 ? "Aufgabe hat" : "Aufgaben haben"} weder Beginn noch Frist und ${noDate === 1 ? "erscheint" : "erscheinen"} nicht im Kalender – siehe <a href="#/aufgaben/alle">Alle Aufgaben</a>.` : ""}</p>`,
     after(r) {
       bindList(r);
       r.querySelectorAll("[data-cm]").forEach((b) => b.onclick = () => { calF.mode = b.dataset.cm; calScroll = null; try { localStorage.setItem("calMode", calF.mode); } catch (_) { /* */ } route(); });

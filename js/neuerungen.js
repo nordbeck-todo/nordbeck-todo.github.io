@@ -5,6 +5,9 @@
 // was sie jetzt tun können, nicht was technisch geändert wurde.
 // Fassungen ohne sichtbare Änderung bekommen keinen Eintrag.
 export const NEUERUNGEN = [
+  { fassung: "1.0.30", datum: "12.11.2026", punkte: [
+    "„Meine Aufgaben“ und „Alle Aufgaben“ sind jetzt eine Seite „Aufgaben“. Oben umschalten zwischen „Eigene anzeigen“, „Alle anzeigen“ oder den Aufgaben einer bestimmten Person – wie in HERO. Die Auswahl merkt sich die App.",
+  ] },
   { fassung: "1.0.29", datum: "12.11.2026", punkte: [
     "Aufgaben können sich jetzt wiederholen – z. B. wöchentlich, monatlich oder jährlich. Einstellen beim Anlegen oder Bearbeiten unter „Wiederholen“. Beim Abhaken legt die App die nächste Aufgabe mit neuer Frist automatisch an.",
     "Auch Projekte lassen sich wiederholen: Beim Archivieren entsteht die nächste Runde mit allen Aufgaben – Termine verschoben, alles wieder offen.",
