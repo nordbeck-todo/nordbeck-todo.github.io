@@ -6,7 +6,7 @@
 // Fassungen ohne sichtbare Änderung bekommen keinen Eintrag.
 export const NEUERUNGEN = [
   { fassung: "1.0.26", datum: "12.11.2026", punkte: [
-    "Nach einem Update zeigt die App jetzt kurz, was neu ist – so wie hier. Nachlesen kannst du es jederzeit unter Einstellungen › „Was ist neu“.",
+    "Nach einem Update zeigt die App jetzt kurz, was neu ist – so wie hier. Nachlesen kannst du es jederzeit über „Was ist neu“ – am PC links in der Leiste unter „Einstellungen“, am Handy unter „Mehr“.",
   ] },
   { fassung: "1.0.25", datum: "12.11.2026", punkte: [
     "Der Kalender nutzt am PC jetzt die ganze Bildschirmbreite und ist besser lesbar.",

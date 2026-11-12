@@ -206,7 +206,8 @@ function updateChrome(path, v) {
   document.getElementById("snav").innerHTML = nav;
   document.getElementById("sadmin").innerHTML = `<div class="sep"></div>
     ${st.isAdmin() ? `<div class="lbl">ADMIN</div><a class="mi${path.startsWith("nutzer") ? " act" : ""}" href="#/nutzer">${i("users")}<span>Nutzer</span></a>` : ""}
-    <a class="mi${path.startsWith("einstellungen") ? " act" : ""}" href="#/einstellungen">${i("gear")}<span>Einstellungen</span></a>`;
+    <a class="mi${path.startsWith("einstellungen") ? " act" : ""}" href="#/einstellungen">${i("gear")}<span>Einstellungen</span></a>
+    <a class="mi" href="#" data-news>${i("star")}<span>Was ist neu</span></a>`;
   const u = st.unreadCount();
   const tb = document.getElementById("tbadge"); tb.textContent = u; tb.classList.toggle("hidden", !u);
   document.getElementById("tav").innerHTML = avatar(S.me, "lg");
@@ -1217,7 +1218,7 @@ function showNews(manual) {
     <div class="news-head">${i("star")}<div><b>Nordbeck To-Do ${esc(APP_VERSION)}</b><div class="muted">${manual ? "Die letzten Änderungen" : "Seit deinem letzten Besuch hat sich etwas getan"}</div></div></div>
     ${list.map((n) => `<div class="news-ver">Version ${esc(n.fassung)}${n.datum ? " · " + esc(n.datum) : ""}</div>
       <ul class="news-list">${n.punkte.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>`).join("")}
-    ${manual ? "" : `<p class="muted" style="font-size:12px;margin-top:10px">Später nachlesen: Einstellungen › „Was ist neu“.</p>`}`,
+    ${manual ? "" : `<p class="muted" style="font-size:12px;margin-top:10px">Später nachlesen: ${innerWidth > 900 ? "links in der Leiste unter „Einstellungen“" : "unter „Mehr“"} › „Was ist neu“.</p>`}`,
     `<button type="button" class="btn red" data-close>Alles klar</button>`,
     (f) => { f.onsubmit = (e) => e.preventDefault(); });
 }
