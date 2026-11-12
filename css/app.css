@@ -419,3 +419,12 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .news-list li { line-height: 1.45; }
 .side a.foot { color: var(--side-muted); } .side a.foot:hover { color: #fff; }
 .mlist a svg { width: 18px; height: 18px; }
+
+/* Handy: Umschalter Projekte-Liste / Kalender (ab v1.0.28) */
+.mswitch { display: none; }
+@media (max-width: 900px) {
+  .mswitch { display: flex; width: 100%; margin-bottom: 14px; }
+  .mswitch .btn { flex: 1; justify-content: center; text-decoration: none; }
+  .mswitch .btn svg { width: 16px; height: 16px; }
+  .calh h1 { display: none; }
+}

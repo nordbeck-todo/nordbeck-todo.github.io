@@ -218,10 +218,10 @@ function updateChrome(path, v) {
       <a href="#/" class="mlogo"><img src="img/logo.png" alt="Tischlermeister Nordbeck"></a><span class="mside r">${bell}</span></div>
     <div class="mtitle">${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ""}<div class="ptitle">${esc(v.title)}</div></div>`;
   const mn = [["#/", "home", "Übersicht", ""], ["#/aufgaben", "check", "Aufgaben", "aufgaben"], ["#/projekte", "folder", "Projekte", "projekt"], ["#/ideen", "bulb", "Ideen", "ideen"], ["#/mehr", "more", "Mehr", "mehr"]];
-  const moreKeys = ["alle", "kalender", "pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
+  const moreKeys = ["alle", "pruefung", "archiv", "mitteilungen", "nutzer", "einstellungen", "suche", "mehr"];
   const w = st.waitingForMe().length;
   document.getElementById("mnav").innerHTML = mn.map(([h, ic, t, key]) => {
-    const act = key === "" ? path === "" : key === "mehr" ? moreKeys.some((k) => path.startsWith(k)) : path.startsWith(key) || (key === "aufgaben" && path.startsWith("aufgabe/"));
+    const act = key === "" ? path === "" : key === "mehr" ? moreKeys.some((k) => path.startsWith(k)) : path.startsWith(key) || (key === "aufgaben" && path.startsWith("aufgabe/")) || (key === "projekt" && path.startsWith("kalender"));
     const b = key === "aufgaben" ? st.myOpen().length : key === "mehr" ? w : 0;
     return `<a href="${h}" class="${act ? "act" : ""}"><span class="ic">${i(ic)}</span>${t}${b ? `<span class="badge">${b}</span>` : ""}</a>`;
   }).join("");
@@ -428,10 +428,14 @@ function projectCard(p) {
       <span>${open} offen · ${g.done}/${g.total}</span></div>
     ${p?.due_date ? `<div class="muted" style="font-size:12px;margin-top:6px">${i("cal", "width:13px;height:13px;vertical-align:-2px")} bis ${fmtDate(p.due_date)}</div>` : ""}</a>`;
 }
+/** Handy: Umschalter zwischen Projektliste und Kalender oben auf beiden Seiten */
+const projSwitch = (cur) => `<div class="seg mswitch">
+  <a class="btn${cur === "list" ? " red" : ""}" href="#/projekte">${i("folder")}Liste</a>
+  <a class="btn${cur === "cal" ? " red" : ""}" href="#/kalender">${i("cal")}Kalender</a></div>`;
 function vProjects() {
   return {
     title: "Projekte",
-    html: `<div class="page-h"><h1>Projekte</h1><div style="display:flex;gap:8px"><a class="btn" href="#/archiv">${i("archive")}Archiv</a><button class="btn red" id="np">${i("plus")}Projekt</button></div></div>
+    html: `${projSwitch("list")}<div class="page-h"><h1>Projekte</h1><div style="display:flex;gap:8px"><a class="btn" href="#/archiv">${i("archive")}Archiv</a><button class="btn red" id="np">${i("plus")}Projekt</button></div></div>
       <div class="pgrid">${st.activeProjects().map(projectCard).join("")}${projectCard(null)}</div>`,
     after(r) { r.querySelector("#np").onclick = () => openProjectForm(); },
   };
@@ -597,7 +601,7 @@ function vMore() {
   const l = (h, ic, t, b) => `<a href="${h}">${i(ic)}<span>${t}</span>${b ? `<span class="badge">${b}</span>` : ""}</a>`;
   return {
     title: "Mehr", noFab: true,
-    html: `<div class="card mlist">${l("#/alle", "list", "Alle Aufgaben")}${l("#/kalender", "cal", "Kalender")}${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
+    html: `<div class="card mlist">${l("#/alle", "list", "Alle Aufgaben")}${l("#/pruefung", "eye", "Zur Prüfung", w)}${l("#/archiv", "archive", "Archiv")}
       ${l("#/mitteilungen", "bell", "Benachrichtigungen", u)}${st.isAdmin() ? l("#/nutzer", "users", "Nutzer verwalten") : ""}${l("#/einstellungen", "gear", "Einstellungen")}<a href="#" data-news>${i("star")}<span>Was ist neu</span></a></div>
       <form class="card" id="ms" style="margin-top:12px;padding:12px;display:flex;gap:8px"><input class="inp" name="q" placeholder="Suchen …"><button class="btn">${i("search")}</button></form>`,
     after(r) { r.querySelector("#ms").onsubmit = (e) => { e.preventDefault(); const q = e.target.q.value.trim(); if (q) location.hash = "#/suche/" + encodeURIComponent(q); }; },
@@ -739,7 +743,7 @@ function vCalendar() {
   const sel = (id, opts, cur) => `<select class="inp" id="${id}" style="width:auto">${opts.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
   return {
     title: "Kalender",
-    html: `<div class="page-h calh"><h1>Kalender</h1>${seg([["2w", "2 Wochen"], ["month", "Monat"], ["quarter", "Quartal"]], calF.mode, "cm")}</div>
+    html: `${projSwitch("cal")}<div class="page-h calh"><h1>Kalender</h1>${seg([["2w", "2 Wochen"], ["month", "Monat"], ["quarter", "Quartal"]], calF.mode, "cm")}</div>
       <div class="gctl">
         <div class="gnav"><button class="btn sm" id="cprev" aria-label="Zurück">${i("back", "width:16px;height:16px")}</button><button class="btn sm" id="ctoday">Heute</button>
           <button class="btn sm" id="cnext" aria-label="Weiter">${i("back", "width:16px;height:16px;transform:rotate(180deg)")}</button><b class="glabel">${esc(R.label)}</b></div>

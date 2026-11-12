@@ -5,6 +5,9 @@
 // was sie jetzt tun können, nicht was technisch geändert wurde.
 // Fassungen ohne sichtbare Änderung bekommen keinen Eintrag.
 export const NEUERUNGEN = [
+  { fassung: "1.0.28", datum: "12.11.2026", punkte: [
+    "Am Handy ist der Kalender jetzt unter „Projekte“ zu finden: oben zwischen „Liste“ und „Kalender“ umschalten.",
+  ] },
   { fassung: "1.0.26", datum: "12.11.2026", punkte: [
     "Nach einem Update zeigt die App jetzt kurz, was neu ist – so wie hier. Nachlesen kannst du es jederzeit über „Was ist neu“ – am PC links in der Leiste unter „Einstellungen“, am Handy unter „Mehr“.",
   ] },
@@ -16,7 +19,7 @@ export const NEUERUNGEN = [
     "Wird eine Idee als Aufgabe übernommen, kommt ihre Priorität mit.",
   ] },
   { fassung: "1.0.23", datum: "12.11.2026", punkte: [
-    "Neu: der Kalender mit Zeitbalken für alle Aufgaben, nach Projekten sortiert. Am PC links in der Leiste, am Handy unter „Mehr“, außerdem über den Knopf „Kalender“ auf jeder Projektseite.",
+    "Neu: der Kalender mit Zeitbalken für alle Aufgaben, nach Projekten sortiert. Am PC links in der Leiste, am Handy unter „Projekte“, außerdem über den Knopf „Kalender“ auf jeder Projektseite.",
     "Aufgaben und Projekte haben ein neues Feld „Beginn“. Damit reicht der Balken im Kalender vom Beginn bis zur Frist.",
   ] },
 ];
