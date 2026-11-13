@@ -267,6 +267,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
   .fab { display: flex; position: fixed; right: 18px; bottom: calc(84px + var(--safe-b)); width: 56px; height: 56px; border-radius: 50%; background: var(--accent);
     color: #fff; align-items: center; justify-content: center; box-shadow: 0 4px 14px #0004; z-index: 21; }
   .fab svg { width: 26px; height: 26px; stroke-width: 2.4; }
+  .pc-add { display: none !important; } /* Anlegen am Handy nur über das + unten (ab v1.0.32) */
   .page-h { margin-bottom: 12px; } .page-h h1 { display: none; }
   .stats { grid-template-columns: 1fr 1fr; gap: 10px; } .stat { padding: 14px; } .stat .n { font-size: 26px; }
   .cols, .cols.cols2, .detail { grid-template-columns: 1fr !important; }

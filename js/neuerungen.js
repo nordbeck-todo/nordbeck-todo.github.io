@@ -5,6 +5,9 @@
 // was sie jetzt tun können, nicht was technisch geändert wurde.
 // Fassungen ohne sichtbare Änderung bekommen keinen Eintrag.
 export const NEUERUNGEN = [
+  { fassung: "1.0.32", datum: "13.11.2026", punkte: [
+    "Am Handy wird jetzt nur noch über das rote + unten rechts angelegt – die doppelten Knöpfe oben (z. B. „+ Aufgabe“, „+ Projekt“, „+ Idee“) sind weg. Im Projekt landet eine neue Aufgabe weiterhin direkt in diesem Projekt.",
+  ] },
   { fassung: "1.0.31", datum: "12.11.2026", punkte: [
     "Der Umschalter „Eigene anzeigen / Alle anzeigen / Person“ gilt jetzt für die ganze App: Übersicht, Aufgaben, Projekte, Kalender, Ideen, Zur Prüfung und Archiv. Am PC steht er oben neben „+ Neu“, am Handy unter dem Seitentitel.",
     "Bei „Eigene“ siehst du unter Projekte nur die Projekte, die du verantwortest, angelegt hast oder in denen du Aufgaben hast. Was ausgeblendet ist, steht unten als Hinweis.",

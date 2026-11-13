@@ -472,8 +472,8 @@ function vDashboard() {
       <div class="cols">
         <div class="card list-cards-m"><div class="card-h"><h3>${esc(tasksT)}</h3><a class="btn sm" href="#/aufgaben/offen">Zur Liste</a></div>
           ${taskList(st.sortTasks(mine).slice(0, 8), { group: false, empty: me ? "Keine offenen Aufgaben – sehr gut!" : "Keine offenen Aufgaben." })}
-          <div class="card-f"><a href="#" data-new>+ Aufgabe hinzufügen</a></div></div>
-        <div class="card"><div class="card-h"><h3>Projekte</h3><button class="btn sm" id="np">${i("plus", "width:14px;height:14px")}Projekt</button></div>
+          <div class="card-f pc-add"><a href="#" data-new>+ Aufgabe hinzufügen</a></div></div>
+        <div class="card"><div class="card-h"><h3>Projekte</h3><button class="btn sm pc-add" id="np">${i("plus", "width:14px;height:14px")}Projekt</button></div>
           <div style="padding:0 18px 6px">${prows}</div></div>
       </div>`,
     after(r) { bindList(r); bindPushNote(r); r.querySelector("#np").onclick = () => openProjectForm(); },
@@ -533,7 +533,7 @@ function vProjects() {
   const me = whoMe();
   return {
     title: me ? "Meine Projekte" : whoAll() ? "Projekte" : `Projekte von ${whoFirst()}`, who: true,
-    html: `${projSwitch("list")}<div class="page-h"><h1>${esc(me ? "Meine Projekte" : whoAll() ? "Projekte" : "Projekte von " + whoFirst())}</h1><div style="display:flex;gap:8px"><a class="btn" href="#/archiv">${i("archive")}Archiv</a><button class="btn red" id="np">${i("plus")}Projekt</button></div></div>
+    html: `${projSwitch("list")}<div class="page-h"><h1>${esc(me ? "Meine Projekte" : whoAll() ? "Projekte" : "Projekte von " + whoFirst())}</h1><div style="display:flex;gap:8px"><a class="btn" href="#/archiv">${i("archive")}Archiv</a><button class="btn red pc-add" id="np">${i("plus")}Projekt</button></div></div>
       ${whoAll() ? "" : `<p class="muted whohint" style="margin-top:-4px">Projekte, in denen ${me ? "du" : esc(whoFirst())} verantwortlich ${me ? "bist" : "ist"}, sie angelegt ${me ? "hast" : "hat"} oder Aufgaben ${me ? "hast" : "hat"}.</p>`}
       ${shown.length || gen ? `<div class="pgrid">${shown.map(projectCard).join("")}${gen ? projectCard(null) : ""}</div>` : `<div class="card empty">Keine Projekte in dieser Auswahl.</div>`}
       ${whoHidden(act.length - shown.length, act.length - shown.length === 1 ? "Projekt" : "Projekte")}`,
@@ -559,7 +559,7 @@ function vProject(id) {
     html: `<div class="page-h"><h1>${esc(p ? p.name : "Allgemein")}${p?.archived ? ' <span class="chip">archiviert</span>' : ""}</h1>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${canP ? `<button class="btn" id="pe">${i("edit")}Bearbeiten</button>
           <button class="btn" id="pa">${i("archive")}${p.archived ? "Wiederherstellen" : "Archivieren"}</button>` : ""}
-          <button class="btn" id="pcal">${i("cal")}Kalender</button><button class="btn red" data-new>${i("plus")}Aufgabe</button></div></div>
+          <button class="btn" id="pcal">${i("cal")}Kalender</button><button class="btn red pc-add" data-new>${i("plus")}Aufgabe</button></div></div>
       <div class="card" style="margin-bottom:12px"><div class="phead">${ring(g.pct)}<div class="info">
         <div><span class="muted">Erledigt:</span> ${g.done} von ${g.total}</div>
         ${p ? `<div style="display:flex;gap:6px;align-items:center"><span class="muted">Verantwortlich:</span> ${p.owner_id ? avatar(p.owner_id) + " " + esc(st.profile(p.owner_id)?.name || "") : "–"}</div>
@@ -957,7 +957,7 @@ function vIdeas() {
     title: "Ideen", who: true,
     html: `<div class="page-h"><h1>Ideen</h1><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         ${seg([["open", `Offen · ${open.length}`], ["adopted", `Übernommen · ${done.length}`]], ideaTab, "it")}
-        <button class="btn red" id="ni">${i("plus")}Idee</button></div></div>
+        <button class="btn red pc-add" id="ni">${i("plus")}Idee</button></div></div>
       <form class="card iquick" id="iq">${i("bulb", "color:var(--warn)")}<input id="iqin" placeholder="Idee schnell notieren …" autocomplete="off" maxlength="200"><button class="btn red sm">Notieren</button></form>
       <p class="muted" style="font-size:13px;margin:0 2px 12px">Hier landet alles, was man nicht vergessen will, aber noch keine Aufgabe ist. Ideen lassen sich nach Priorität einstufen (Idee antippen) – gemeint ist, wie machbar, wichtig und dringend sie insgesamt ist. Mit „Übernehmen“ wird daraus eine Aufgabe oder ein Projekt.</p>
       ${S.hasRating ? `<div class="isort"><label for="isrt" class="muted">Sortieren nach</label><select class="inp" id="isrt">${IDEA_SORTS.map(([k, l]) => `<option value="${k}" ${k === ideaSort ? "selected" : ""}>${l}</option>`).join("")}</select></div>`
