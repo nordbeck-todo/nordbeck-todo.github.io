@@ -101,6 +101,46 @@ export function sortIdeas(list, by = "priority") {
   return [...list].sort((a, b) => (a.priority || 9) - (b.priority || 9) || newer(a, b));
 }
 
+// ---------- Sortierung der Listen (ab v1.0.33) ----------
+const byTitle = (a, b) => (a.title || "").localeCompare(b.title || "", "de", { sensitivity: "base" });
+const byNew = (a, b) => (b.created_at || "").localeCompare(a.created_at || "");
+const byDone = (a, b) => (b.done_at || "").localeCompare(a.done_at || "");
+/**
+ * Aufgaben sortieren und ggf. in Gruppen teilen. Ergebnis: [[Überschrift|null, Aufgaben, rot?], …]
+ * due = Frist (mit Gruppen Überfällig/Heute/…, außer dueGroups=false), prio = Priorität (Gruppen Hoch/Mittel/Niedrig),
+ * project = nach Projekt (Gruppen je Projekt, „Allgemein“ zuletzt), title = A–Z, new = zuletzt angelegt, done = zuletzt erledigt
+ */
+export function groupTasks(list, by = "due", dueGroups = true) {
+  if (by === "title") return [[null, [...list].sort((a, b) => byTitle(a, b) || byNew(a, b))]];
+  if (by === "new") return [[null, [...list].sort(byNew)]];
+  if (by === "done") return [[null, [...list].sort((a, b) => byDone(a, b) || byNew(a, b))]];
+  if (by === "prio") {
+    const s = sortTasks(list);
+    return [[1, "HOCH"], [2, "MITTEL"], [3, "NIEDRIG"]].map(([p, l]) => [l, s.filter((t) => (t.priority || 2) === p)]).filter((x) => x[1].length);
+  }
+  if (by === "project") {
+    const m = new Map();
+    for (const t of sortTasks(list)) { const k = t.project_id || ""; if (!m.has(k)) m.set(k, []); m.get(k).push(t); }
+    const name = (k) => (k ? project(k)?.name || "" : "");
+    return [...m.keys()].sort((a, b) => (!a) - (!b) || name(a).localeCompare(name(b), "de", { sensitivity: "base" }))
+      .map((k) => [(k ? name(k) : "Allgemein").toUpperCase(), m.get(k)]);
+  }
+  return dueGroups ? groupByDue(list) : [[null, sortTasks(list)]];
+}
+/** Projekte sortieren: end = Enddatum (ohne Enddatum unten), name = A–Z, progress = Fortschritt (wenig zuerst), open = meiste offene Aufgaben, new = zuletzt angelegt */
+export function sortProjects(list, by = "end") {
+  const pr = (p) => progress(tasksOfProject(p.id));
+  const nm = (a, b) => (a.name || "").localeCompare(b.name || "", "de", { sensitivity: "base" });
+  const f = {
+    end: (a, b) => (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31") || nm(a, b),
+    name: nm,
+    progress: (a, b) => pr(a).pct - pr(b).pct || nm(a, b),
+    open: (a, b) => { const o = (p) => { const g = pr(p); return g.total - g.done; }; return o(b) - o(a) || nm(a, b); },
+    new: byNew,
+  }[by] || nm;
+  return [...list].sort(f);
+}
+
 export function groupByDue(list) {
   const g = { over: [], today: [], week: [], later: [], none: [] };
   for (const t of sortTasks(list)) {

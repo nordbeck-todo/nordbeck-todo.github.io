@@ -5,6 +5,11 @@
 // was sie jetzt tun können, nicht was technisch geändert wurde.
 // Fassungen ohne sichtbare Änderung bekommen keinen Eintrag.
 export const NEUERUNGEN = [
+  { fassung: "1.0.33", datum: "16.11.2026", punkte: [
+    "Listen lassen sich jetzt sortieren: Über „Sortieren nach“ wählst du Frist, Priorität, Projekt, Titel (A–Z), zuletzt angelegt oder zuletzt erledigt – bei Aufgaben, in jedem Projekt, unter „Zur Prüfung“ und im Archiv.",
+    "Auch die Projekte lassen sich sortieren: nach Enddatum, Name, Fortschritt, meisten offenen Aufgaben oder zuletzt angelegt.",
+    "Jede Liste merkt sich ihre Sortierung auf deinem Gerät.",
+  ] },
   { fassung: "1.0.32", datum: "13.11.2026", punkte: [
     "Am Handy wird jetzt nur noch über das rote + unten rechts angelegt – die doppelten Knöpfe oben (z. B. „+ Aufgabe“, „+ Projekt“, „+ Idee“) sind weg. Im Projekt landet eine neue Aufgabe weiterhin direkt in diesem Projekt.",
   ] },

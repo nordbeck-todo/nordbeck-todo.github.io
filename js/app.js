@@ -392,9 +392,31 @@ function taskRow(t, opt = {}) {
 
 function taskList(list, opt = {}) {
   if (!list.length) return `<div class="empty">${opt.empty || "Keine Aufgaben."}</div>`;
-  if (opt.group === false) return list.map((t) => taskRow(t, opt)).join("");
-  return st.groupByDue(list).map(([lbl, ts, red]) =>
-    `<div class="grp ${red ? "red" : ""}">${lbl} · ${ts.length}</div>${ts.map((t) => taskRow(t, opt)).join("")}`).join("");
+  if (!opt.sort && opt.group === false) return list.map((t) => taskRow(t, opt)).join("");
+  return st.groupTasks(list, opt.sort || "due", opt.group !== false).map(([lbl, ts, red]) =>
+    `${lbl ? `<div class="grp ${red ? "red" : ""}">${esc(lbl)} · ${ts.length}</div>` : ""}${ts.map((t) => taskRow(t, opt)).join("")}`).join("");
+}
+
+// ---------- Sortierung je Liste (ab v1.0.33) ----------
+// Jede Liste merkt sich ihre Sortierung pro Gerät (localStorage „sort:<liste>“)
+const SORT_T = { due: "Frist", prio: "Priorität", project: "Projekt", title: "Titel (A–Z)", new: "Zuletzt angelegt", done: "Zuletzt erledigt" };
+const SORT_P = { end: "Enddatum", name: "Name (A–Z)", progress: "Fortschritt (wenig zuerst)", open: "Meiste offene Aufgaben", new: "Zuletzt angelegt" };
+function getSort(key, def, allowed) {
+  let v = null; try { v = localStorage.getItem("sort:" + key); } catch (_) { /* */ }
+  return v && allowed.includes(v) ? v : def;
+}
+/** Auswahl „Sortieren nach“ über einer Liste; keys = erlaubte Werte, labels = SORT_T oder SORT_P */
+function sortSel(key, keys, cur, labels = SORT_T) {
+  return `<div class="isort"><label for="srt-${key}" class="muted">Sortieren nach</label><select class="inp" id="srt-${key}" data-sort="${key}">${keys.map((k) => `<option value="${k}" ${k === cur ? "selected" : ""}>${labels[k]}</option>`).join("")}</select></div>`;
+}
+function bindSort(r) {
+  r.querySelectorAll("[data-sort]").forEach((s) => s.onchange = () => { try { localStorage.setItem("sort:" + s.dataset.sort, s.value); } catch (_) { /* */ } route(); });
+}
+/** Sortierung für eine Aufgabenliste lesen: mit Projekt (proj) oder ohne (Projektseite), erledigte Listen zusätzlich „Zuletzt erledigt“ */
+function taskSort(key, def, { proj = true, done = false } = {}) {
+  const keys = ["due", "prio", ...(proj ? ["project"] : []), "title", "new", ...(done ? ["done"] : [])];
+  const cur = getSort(key, def, keys);
+  return { cur, keys, html: sortSel(key, keys, cur) };
 }
 
 function bindList(root) {
@@ -495,19 +517,20 @@ function vTasks(pre) {
   const open = base.filter((t) => t.status === "open"), rev = base.filter((t) => t.status === "review");
   const done = base.filter((t) => t.status === "done").sort((a, b) => (b.done_at || "").localeCompare(a.done_at || "")).slice(0, 100);
   const me = whoMe();
-  const list = taskF.tab === "open" ? taskList(open, { empty: me ? "Keine offenen Aufgaben – sehr gut!" : "Keine offenen Aufgaben." })
-    : taskF.tab === "review" ? taskList(rev, { group: false, empty: "Nichts zur Prüfung." })
-    : taskList(done, { group: false, empty: "Noch nichts erledigt." });
+  const so = taskSort("aufgaben-" + taskF.tab, taskF.tab === "done" ? "done" : "due", { done: taskF.tab === "done" });
+  const list = taskF.tab === "open" ? taskList(open, { sort: so.cur, empty: me ? "Keine offenen Aufgaben – sehr gut!" : "Keine offenen Aufgaben." })
+    : taskF.tab === "review" ? taskList(rev, { sort: so.cur, group: false, empty: "Nichts zur Prüfung." })
+    : taskList(done, { sort: so.cur, group: false, empty: "Noch nichts erledigt." });
   const title = me ? "Meine Aufgaben" : whoAll() ? "Alle Aufgaben" : `Aufgaben von ${whoFirst()}`;
   const opt = (v, l, cur) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`;
   return {
     title, who: true,
     html: `<div class="page-h"><h1>${esc(title)}</h1>
         <div class="tfil"><select class="inp" id="fp" aria-label="Projekt">${opt("", "Alle Projekte", taskF.proj)}${opt("allgemein", "Allgemein", taskF.proj)}${st.activeProjects().map((p) => opt(p.id, p.name, taskF.proj)).join("")}</select></div></div>
-      <div class="ttabs">${seg([["open", `Offen · ${open.length}`], ["review", `Zur Prüfung · ${rev.length}`], ["done", "Erledigt"]], taskF.tab, "tab")}</div>
+      <div class="lbar"><div class="ttabs">${seg([["open", `Offen · ${open.length}`], ["review", `Zur Prüfung · ${rev.length}`], ["done", "Erledigt"]], taskF.tab, "tab")}</div>${so.html}</div>
       <div class="card list-cards">${list}</div>`,
     after(r) {
-      bindList(r);
+      bindList(r); bindSort(r);
       r.querySelector("#fp").onchange = (e) => { taskF.proj = e.target.value; route(); };
       r.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { taskF.tab = b.dataset.tab; route(); });
     },
@@ -529,15 +552,18 @@ const projSwitch = (cur) => `<div class="seg mswitch">
   <a class="btn${cur === "list" ? " red" : ""}" href="#/projekte">${i("folder")}Liste</a>
   <a class="btn${cur === "cal" ? " red" : ""}" href="#/kalender">${i("cal")}Kalender</a></div>`;
 function vProjects() {
-  const act = st.activeProjects(), shown = act.filter(whoProject), gen = whoProject(null);
+  const act = st.activeProjects(), gen = whoProject(null);
+  const pso = getSort("projekte", "end", Object.keys(SORT_P));
+  const shown = st.sortProjects(act.filter(whoProject), pso);
   const me = whoMe();
   return {
     title: me ? "Meine Projekte" : whoAll() ? "Projekte" : `Projekte von ${whoFirst()}`, who: true,
     html: `${projSwitch("list")}<div class="page-h"><h1>${esc(me ? "Meine Projekte" : whoAll() ? "Projekte" : "Projekte von " + whoFirst())}</h1><div style="display:flex;gap:8px"><a class="btn" href="#/archiv">${i("archive")}Archiv</a><button class="btn red pc-add" id="np">${i("plus")}Projekt</button></div></div>
       ${whoAll() ? "" : `<p class="muted whohint" style="margin-top:-4px">Projekte, in denen ${me ? "du" : esc(whoFirst())} verantwortlich ${me ? "bist" : "ist"}, sie angelegt ${me ? "hast" : "hat"} oder Aufgaben ${me ? "hast" : "hat"}.</p>`}
+      ${shown.length > 1 ? sortSel("projekte", Object.keys(SORT_P), pso, SORT_P) : ""}
       ${shown.length || gen ? `<div class="pgrid">${shown.map(projectCard).join("")}${gen ? projectCard(null) : ""}</div>` : `<div class="card empty">Keine Projekte in dieser Auswahl.</div>`}
       ${whoHidden(act.length - shown.length, act.length - shown.length === 1 ? "Projekt" : "Projekte")}`,
-    after(r) { r.querySelector("#np").onclick = () => openProjectForm(); },
+    after(r) { bindSort(r); r.querySelector("#np").onclick = () => openProjectForm(); },
   };
 }
 
@@ -551,9 +577,10 @@ function vProject(id) {
   const allOpen = all.filter((t) => t.status !== "done");
   const canP = p && (st.isAdmin() || p.owner_id === S.me || p.created_by === S.me);
   const nextP = p?.next_project_id ? st.project(p.next_project_id) : null;
-  const list = projTab === "open" ? taskList(open, { project: false, empty: "Keine offenen Aufgaben." })
-    : projTab === "done" ? taskList(done, { project: false, group: false, empty: "Noch nichts erledigt." })
-    : taskList(st.sortTasks(l), { project: false, group: false });
+  const so = taskSort("projekt-" + projTab, projTab === "done" ? "done" : "due", { proj: false, done: projTab !== "open" });
+  const list = projTab === "open" ? taskList(open, { sort: so.cur, project: false, empty: "Keine offenen Aufgaben." })
+    : projTab === "done" ? taskList(done, { sort: so.cur, project: false, group: false, empty: "Noch nichts erledigt." })
+    : taskList(l, { sort: so.cur, project: false, group: false });
   return {
     title: p ? p.name : "Allgemein", sub: "Projekt", back: "#/projekte", who: true,
     html: `<div class="page-h"><h1>${esc(p ? p.name : "Allgemein")}${p?.archived ? ' <span class="chip">archiviert</span>' : ""}</h1>
@@ -568,10 +595,10 @@ function vProject(id) {
         ${p.recurrence?.unit ? `<div><span class="muted">Wiederholung:</span> ${esc(recText(p.recurrence))}</div>` : ""}
         ${nextP ? `<div><span class="muted">Nächste Runde:</span> <a href="#/projekt/${nextP.id}">${nextP.due_date ? "bis " + fmtDate(nextP.due_date) : "öffnen"}</a></div>` : ""}` : `<div class="muted">Aufgaben ohne Projekt</div>`}
       </div></div>${p?.description ? `<div class="desc">${esc(p.description)}</div>` : ""}</div>
-      <div style="margin-bottom:10px">${seg([["open", `Offen · ${open.length}`], ["done", `Erledigt · ${done.length}`], ["all", "Alle"]], projTab, "pt")}</div>
+      <div class="lbar"><div class="ttabs">${seg([["open", `Offen · ${open.length}`], ["done", `Erledigt · ${done.length}`], ["all", "Alle"]], projTab, "pt")}</div>${so.html}</div>
       <div class="card list-cards">${list}</div>${whoHidden(all.length - l.length, "Aufgaben")}`,
     after(r) {
-      bindList(r);
+      bindList(r); bindSort(r);
       r.querySelectorAll("[data-pt]").forEach((b) => b.onclick = () => { projTab = b.dataset.pt; route(); });
       r.querySelector("#pcal").onclick = () => { calF.proj = id; calF.anchor = null; location.hash = "#/kalender"; };
       const pe = r.querySelector("#pe"); if (pe) pe.onclick = () => openProjectForm(p);
@@ -670,27 +697,30 @@ function vTask(id) {
 function vReview() {
   const u = whoId(), me = whoMe();
   const wait = S.tasks.filter((t) => t.status === "review" && !st.archivedTask(t) && (!u || t.created_by === u));
+  const so = taskSort("pruefung", "due", { done: true });
   return {
     title: "Zur Prüfung", who: true,
     html: `<div class="page-h"><h1>Zur Prüfung</h1></div>
       <p class="muted" style="margin-bottom:12px">${me ? "Von dir angelegte Aufgaben, die erledigt wurden und auf deine Bestätigung warten."
         : u ? `Von ${esc(whoFirst())} angelegte Aufgaben, die erledigt wurden und auf seine/ihre Bestätigung warten.` : "Alle erledigten Aufgaben, die auf die Bestätigung durch den Ersteller warten."}</p>
-      <div class="card list-cards">${taskList(wait, { group: false, empty: "Nichts zu prüfen." })}</div>`,
-    after: bindList,
+      ${wait.length > 1 ? so.html : ""}<div class="card list-cards">${taskList(wait, { sort: so.cur, group: false, empty: "Nichts zu prüfen." })}</div>`,
+    after(r) { bindList(r); bindSort(r); },
   };
 }
 
 function vArchive() {
-  const arch = S.projects.filter((p) => p.archived && whoProject(p));
+  const pso = getSort("archiv-projekte", "end", Object.keys(SORT_P));
+  const arch = st.sortProjects(S.projects.filter((p) => p.archived && whoProject(p)), pso);
+  const so = taskSort("archiv-aufgaben", "done", { done: true });
   const done = S.tasks.filter((t) => t.status === "done" && whoTask(t)).sort((a, b) => (b.done_at || "").localeCompare(a.done_at || "")).slice(0, 40);
   return {
     title: "Archiv", who: true,
     html: `<div class="page-h"><h1>Archiv</h1></div>
-      <h3 style="font-size:15px;margin:4px 2px 10px">Abgeschlossene Projekte</h3>
+      <div class="lbar"><h3 style="font-size:15px;margin:4px 2px">Abgeschlossene Projekte</h3>${arch.length > 1 ? sortSel("archiv-projekte", Object.keys(SORT_P), pso, SORT_P) : ""}</div>
       ${arch.length ? `<div class="pgrid" style="margin-bottom:20px">${arch.map(projectCard).join("")}</div>` : `<div class="card empty" style="margin-bottom:20px">Keine archivierten Projekte.</div>`}
-      <h3 style="font-size:15px;margin:4px 2px 10px">Zuletzt erledigt</h3>
-      <div class="card list-cards">${taskList(done, { group: false, empty: "Noch nichts erledigt." })}</div>`,
-    after: bindList,
+      <div class="lbar"><h3 style="font-size:15px;margin:4px 2px">Zuletzt erledigt</h3>${done.length > 1 ? so.html : ""}</div>
+      <div class="card list-cards">${taskList(done, { sort: so.cur, group: false, empty: "Noch nichts erledigt." })}</div>`,
+    after(r) { bindList(r); bindSort(r); },
   };
 }
 
